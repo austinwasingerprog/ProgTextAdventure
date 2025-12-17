@@ -15,7 +15,8 @@
         
         <div class="tabs">
             <button class="tab-button active" data-tab="ascii">ASCII View</button>
-            <button class="tab-button" data-tab="canvas">Canvas View</button>
+            <button class="tab-button" data-tab="canvas">2D Canvas</button>
+            <button class="tab-button" data-tab="3d">3D View</button>
         </div>
         
         <div class="tab-content" id="asciiTab">
@@ -42,8 +43,26 @@
                 <p>Rooms are positioned based on their actual cardinal directions!</p>
             </div>
         </div>
+        
+        <div class="tab-content" id="3dTab">
+            <h2>3D Room Visualization</h2>
+            <div class="legend">
+                <span class="legend-item"><span class="legend-color cardinal"></span> Cardinal Connections (N/S/E/W)</span>
+                <span class="legend-item"><span class="legend-color vertical"></span> Vertical Connections (Up/Down)</span>
+                <span class="legend-item"><span class="legend-node blue"></span> Ground Floor</span>
+                <span class="legend-item"><span class="legend-node purple"></span> Upper Floors</span>
+                <span class="legend-item"><span class="legend-node red"></span> Basement</span>
+                <span class="legend-item"><span class="legend-star">★</span> Starting Room</span>
+            </div>
+            <div id="canvas3d"></div>
+            <div class="canvas-controls">
+                <p><strong>Controls:</strong> Left Click + Drag to Rotate • Right Click + Drag to Pan • Scroll to Zoom</p>
+                <p>Rooms are positioned in true 3D space with correct cardinal directions!</p>
+            </div>
+        </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="room.js"></script>
     <script src="graph.js"></script>
     <script src="gameData.js"></script>

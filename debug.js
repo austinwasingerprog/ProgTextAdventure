@@ -77,6 +77,12 @@ class DebugView {
         } else if (tabName === 'canvas') {
             document.getElementById('canvasTab').classList.remove('hidden');
             this.renderCanvas();
+        } else if (tabName === '3d') {
+            document.getElementById('3dTab').classList.remove('hidden');
+            if (!window.debugView3D) {
+                window.debugView3D = new DebugView3D(this.graph);
+                window.debugView3D.init();
+            }
         }
     }
 
@@ -601,6 +607,448 @@ class DebugView {
             this.hoveredNode = null;
             this.renderCanvas();
         }
+    }
+}
+
+/**
+ * 3D Debug View using Three.js
+ * Renders rooms in true 3D space with correct cardinal positioning
+ */
+class DebugView3D {
+    constructor(graph) {
+        this.graph = graph;
+        this.container = document.getElementById('canvas3d');
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.controls = null;
+        this.roomMeshes = new Map();
+        this.connectionLines = [];
+        this.nodePositions = new Map();
+    }
+
+    /**
+     * Initialize the 3D view
+     */
+    init() {
+        this.setupScene();
+        this.calculatePositions();
+        this.createRoomNodes();
+        this.createConnections();
+        this.setupLighting();
+        this.setupControls();
+        this.animate();
+    }
+
+    /**
+     * Set up the Three.js scene
+     */
+    setupScene() {
+        // Create scene
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x1e1e1e);
+
+        // Create camera
+        this.camera = new THREE.PerspectiveCamera(
+            75,
+            this.container.clientWidth / this.container.clientHeight,
+            0.1,
+            1000
+        );
+        this.camera.position.set(15, 15, 15);
+        this.camera.lookAt(0, 0, 0);
+
+        // Create renderer
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+        this.container.appendChild(this.renderer.domElement);
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (document.getElementById('3dTab').classList.contains('hidden')) return;
+            
+            this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+        });
+    }
+
+    /**
+     * Calculate 3D positions for all rooms
+     */
+    calculatePositions() {
+        const rooms = Array.from(this.graph.rooms.values());
+        const startRoom = this.graph.getStartRoom();
+        const visited = new Set();
+        const queue = [{ room: startRoom, x: 0, y: 0, z: 0 }];
+        
+        const spacing = 5; // Units between rooms
+        const verticalSpacing = 6; // Units for vertical levels
+
+        // Direction mappings (X = East-West, Z = North-South, Y = Up-Down)
+        const directionOffsets = {
+            'north': { x: 0, y: 0, z: -spacing },
+            'south': { x: 0, y: 0, z: spacing },
+            'east': { x: spacing, y: 0, z: 0 },
+            'west': { x: -spacing, y: 0, z: 0 },
+            'up': { x: 0, y: verticalSpacing, z: 0 },
+            'down': { x: 0, y: -verticalSpacing, z: 0 }
+        };
+
+        while (queue.length > 0) {
+            const { room, x, y, z } = queue.shift();
+
+            if (visited.has(room.id)) continue;
+            visited.add(room.id);
+
+            this.nodePositions.set(room.id, { x, y, z, room });
+
+            // Queue adjacent rooms
+            for (const [direction, targetId] of Object.entries(room.exits)) {
+                if (!visited.has(targetId)) {
+                    const offset = directionOffsets[direction];
+                    if (offset) {
+                        const targetRoom = this.graph.getRoom(targetId);
+                        if (targetRoom) {
+                            queue.push({
+                                room: targetRoom,
+                                x: x + offset.x,
+                                y: y + offset.y,
+                                z: z + offset.z
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Handle any unconnected rooms (like roof, basement, freedom before dynamic connections)
+        for (const room of rooms) {
+            if (!this.nodePositions.has(room.id)) {
+                let x, y, z;
+                
+                // Special positioning for known conditional rooms
+                if (room.id === 'roof') {
+                    // Position roof directly above lobby (same X,Z)
+                    const lobbyPos = this.nodePositions.get('lobby');
+                    if (lobbyPos) {
+                        x = lobbyPos.x;
+                        y = verticalSpacing;
+                        z = lobbyPos.z;
+                    } else {
+                        x = 0;
+                        y = verticalSpacing;
+                        z = 0;
+                    }
+                } else if (room.id === 'basement') {
+                    // Position basement directly below claims (same X,Z)
+                    const claimsPos = this.nodePositions.get('claims');
+                    if (claimsPos) {
+                        x = claimsPos.x;
+                        y = -verticalSpacing;
+                        z = claimsPos.z;
+                    } else {
+                        x = 0;
+                        y = -verticalSpacing;
+                        z = 0;
+                    }
+                } else if (room.id === 'freedom') {
+                    // Position freedom room next to roof (special win state)
+                    const roofPos = this.nodePositions.get('roof');
+                    if (roofPos) {
+                        x = roofPos.x + spacing;
+                        y = roofPos.y;
+                        z = roofPos.z;
+                    } else {
+                        x = spacing * 3;
+                        y = verticalSpacing;
+                        z = 0;
+                    }
+                } else {
+                    // Place other unconnected rooms off to the side
+                    x = spacing * 4;
+                    y = 0;
+                    z = Math.random() * spacing * 2 - spacing;
+                }
+                
+                this.nodePositions.set(room.id, { x, y, z, room });
+            }
+        }
+    }
+
+    /**
+     * Create text label (using sprite-based approach)
+     */
+    createLabel(text, x, y, z) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 64;
+        
+        context.fillStyle = '#1e1e1e';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.font = 'Bold 20px Arial';
+        context.fillStyle = '#ffffff';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(text, canvas.width / 2, canvas.height / 2);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.position.set(x, y, z);
+        sprite.scale.set(3, 0.75, 1);
+        
+        this.scene.add(sprite);
+    }
+
+    /**
+     * Create 3D room nodes
+     */
+    createRoomNodes() {
+        const startRoomId = this.graph.getStartRoom().id;
+
+        for (const [roomId, pos] of this.nodePositions.entries()) {
+            const room = pos.room;
+            
+            // Determine color based on level
+            let color = 0x0066cc; // Blue for ground floor (y=0)
+            if (pos.y > 0) {
+                color = 0x9c27b0; // Purple for upper floors
+            } else if (pos.y < 0) {
+                color = 0xf44336; // Red for basement
+            }
+
+            // Create sphere for room
+            const geometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const material = new THREE.MeshPhongMaterial({ 
+                color: color,
+                emissive: color,
+                emissiveIntensity: 0.2,
+                shininess: 100
+            });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(pos.x, pos.y, pos.z);
+            
+            // Store reference
+            sphere.userData = { roomId, room };
+            this.roomMeshes.set(roomId, sphere);
+            this.scene.add(sphere);
+
+            // Add label using room.id instead of room.name
+            this.createLabel(room.id, pos.x, pos.y + 1, pos.z);
+
+            // Add star for starting room
+            if (roomId === startRoomId) {
+                const starGeometry = new THREE.SphereGeometry(0.3, 5, 5);
+                const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+                const star = new THREE.Mesh(starGeometry, starMaterial);
+                star.position.set(pos.x, pos.y + 1.2, pos.z);
+                this.scene.add(star);
+            }
+
+            // Add danger indicator
+            if (room.isDangerous) {
+                const ringGeometry = new THREE.TorusGeometry(0.7, 0.1, 16, 100);
+                const ringMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.position.set(pos.x, pos.y, pos.z);
+                ring.rotation.x = Math.PI / 2;
+                this.scene.add(ring);
+            }
+        }
+    }
+
+    /**
+     * Create connection lines between rooms
+     */
+    createConnections() {
+        const processed = new Set();
+
+        for (const [roomId, pos] of this.nodePositions.entries()) {
+            const room = pos.room;
+
+            for (const [direction, targetId] of Object.entries(room.exits)) {
+                const connectionKey = [roomId, targetId].sort().join('-');
+                if (processed.has(connectionKey)) continue;
+                processed.add(connectionKey);
+
+                const targetPos = this.nodePositions.get(targetId);
+                if (!targetPos) continue;
+
+                // Determine line color
+                const isVertical = direction === 'up' || direction === 'down';
+                const color = isVertical ? 0xff9900 : 0x0066cc;
+
+                // Create line
+                const points = [];
+                points.push(new THREE.Vector3(pos.x, pos.y, pos.z));
+                points.push(new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z));
+
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({ 
+                    color: color,
+                    linewidth: 2,
+                    opacity: 0.6,
+                    transparent: true
+                });
+                const line = new THREE.Line(geometry, material);
+                this.connectionLines.push(line);
+                this.scene.add(line);
+
+                // Add arrow
+                const dir = new THREE.Vector3()
+                    .subVectors(
+                        new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z),
+                        new THREE.Vector3(pos.x, pos.y, pos.z)
+                    )
+                    .normalize();
+                
+                const arrowHelper = new THREE.ArrowHelper(
+                    dir,
+                    new THREE.Vector3(pos.x, pos.y, pos.z),
+                    Math.sqrt(
+                        Math.pow(targetPos.x - pos.x, 2) +
+                        Math.pow(targetPos.y - pos.y, 2) +
+                        Math.pow(targetPos.z - pos.z, 2)
+                    ),
+                    color,
+                    0.5,
+                    0.3
+                );
+                this.scene.add(arrowHelper);
+            }
+        }
+    }
+
+    /**
+     * Set up lighting
+     */
+    setupLighting() {
+        // Ambient light
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        this.scene.add(ambientLight);
+
+        // Directional lights
+        const light1 = new THREE.DirectionalLight(0xffffff, 0.5);
+        light1.position.set(10, 10, 10);
+        this.scene.add(light1);
+
+        const light2 = new THREE.DirectionalLight(0xffffff, 0.3);
+        light2.position.set(-10, -10, -10);
+        this.scene.add(light2);
+
+        // Add a grid helper
+        const gridHelper = new THREE.GridHelper(50, 50, 0x444444, 0x222222);
+        this.scene.add(gridHelper);
+
+        // Add axis helper
+        const axesHelper = new THREE.AxesHelper(10);
+        this.scene.add(axesHelper);
+    }
+
+    /**
+     * Set up camera controls
+     */
+    setupControls() {
+        // Simple orbit controls implementation
+        let isRotating = false;
+        let isPanning = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        this.renderer.domElement.addEventListener('mousedown', (e) => {
+            if (e.button === 0) { // Left click
+                isRotating = true;
+            } else if (e.button === 2) { // Right click
+                isPanning = true;
+                e.preventDefault();
+            }
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        this.renderer.domElement.addEventListener('mousemove', (e) => {
+            if (isRotating) {
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+
+                const rotationSpeed = 0.005;
+                
+                // Rotate camera around the scene
+                const radius = Math.sqrt(
+                    this.camera.position.x ** 2 +
+                    this.camera.position.y ** 2 +
+                    this.camera.position.z ** 2
+                );
+                
+                const theta = Math.atan2(this.camera.position.x, this.camera.position.z);
+                const phi = Math.acos(this.camera.position.y / radius);
+
+                const newTheta = theta - deltaX * rotationSpeed;
+                const newPhi = Math.max(0.1, Math.min(Math.PI - 0.1, phi - deltaY * rotationSpeed));
+
+                this.camera.position.x = radius * Math.sin(newPhi) * Math.sin(newTheta);
+                this.camera.position.y = radius * Math.cos(newPhi);
+                this.camera.position.z = radius * Math.sin(newPhi) * Math.cos(newTheta);
+                
+                this.camera.lookAt(0, 0, 0);
+            } else if (isPanning) {
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+
+                const panSpeed = 0.02;
+                
+                const right = new THREE.Vector3();
+                const up = new THREE.Vector3(0, 1, 0);
+                
+                right.crossVectors(this.camera.position, up).normalize();
+                
+                this.camera.position.x -= right.x * deltaX * panSpeed;
+                this.camera.position.z -= right.z * deltaX * panSpeed;
+                this.camera.position.y += deltaY * panSpeed;
+                
+                this.camera.lookAt(0, 0, 0);
+            }
+
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        this.renderer.domElement.addEventListener('mouseup', () => {
+            isRotating = false;
+            isPanning = false;
+        });
+
+        this.renderer.domElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+
+        this.renderer.domElement.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomSpeed = 0.1;
+            const delta = e.deltaY > 0 ? 1 + zoomSpeed : 1 - zoomSpeed;
+            
+            this.camera.position.x *= delta;
+            this.camera.position.y *= delta;
+            this.camera.position.z *= delta;
+            
+            this.camera.lookAt(0, 0, 0);
+        });
+    }
+
+    /**
+     * Animation loop
+     */
+    animate() {
+        requestAnimationFrame(() => this.animate());
+        
+        // Rotate danger rings
+        this.scene.children.forEach(child => {
+            if (child instanceof THREE.Mesh && child.geometry instanceof THREE.TorusGeometry) {
+                child.rotation.z += 0.01;
+            }
+        });
+
+        this.renderer.render(this.scene, this.camera);
     }
 }
 
