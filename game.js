@@ -129,17 +129,85 @@ class Game {
         
         this.addOutput("");
         this.addOutput(`📍 ${room.title}`, "room-title");
-        this.addOutput(room.description, "room-description");
+        
+        // Dynamic room descriptions based on game state
+        let description = room.description;
+        
+        // Update Claims description if basement is unlocked
+        if (room.id === 'claims' && this.gameState.basementUnlocked) {
+            description = description.replace(
+                "A heavy metal door marked 'BASEMENT - ELECTRICAL' is locked tight. You'll need a key.",
+                "The basement door stands open, revealing a dark stairway leading DOWN."
+            );
+        }
+        
+        // Update Claims description if power is restored (air cleared)
+        if (room.id === 'claims' && this.gameState.powerRestored) {
+            description = "The Claims Department is now well-ventilated. The toxic fumes have cleared thanks to " +
+                "the restored ventilation system. Papers are still scattered everywhere from the earlier chaos. " +
+                "The basement door stands open, revealing a stairway leading DOWN.";
+        }
+        
+        // Update Lobby description if power is restored
+        if (room.id === 'lobby' && this.gameState.powerRestored) {
+            description = "The lobby is now illuminated by overhead lights! The shadows have retreated. " +
+                "Everything looks much less ominous now. The elevator hums quietly - it's operational. " +
+                "A lit button shows you can go UP to the roof.";
+        }
+        
+        // Update Basement description if power is restored
+        if (room.id === 'basement' && this.gameState.powerRestored) {
+            description = "The basement electrical room is now safe. The water has drained away and the exposed " +
+                "wires are no longer sparking. The breaker panel shows all systems green. You did it!";
+        }
+        
+        this.addOutput(description, "room-description");
         
         if (room.items.length > 0) {
             this.addOutput(room.getItemsString(), "item-list");
         }
         
         this.addOutput("");
-        this.addOutput(room.getExitsString(), "exits");
+        
+        // Show exits with conditionals
+        this.addOutput(room.getExitsStringWithConditionals(this.gameState), "exits");
+        
+        // Show special actions available
+        this.showAvailableActions(room);
         
         // Drain energy from moving
         this.modifyEnergy(-2);
+    }
+
+    /**
+     * Show special actions available in current room
+     */
+    showAvailableActions(room) {
+        const actions = [];
+        
+        // Check for usable items in inventory that work here
+        if (room.id === 'claims') {
+            const hasKey = this.inventory.some(item => item.id === 'basement-key');
+            if (hasKey && !this.gameState.basementUnlocked) {
+                actions.push("💡 You can USE the basement-key here to unlock the basement door");
+            }
+        }
+        
+        if (room.id === 'basement') {
+            const hasFuse = this.inventory.some(item => item.id === 'fuse');
+            if (hasFuse && !this.gameState.powerRestored) {
+                actions.push("💡 You can USE the fuse here to restore power to the building");
+            }
+        }
+        
+        if (room.id === 'roof') {
+            actions.push("🪜 Type ESCAPE to climb down the fire escape and complete your mission!");
+        }
+        
+        if (actions.length > 0) {
+            this.addOutput("", "normal");
+            actions.forEach(action => this.addOutput(action, "success"));
+        }
     }
 
     /**
@@ -213,7 +281,7 @@ class Game {
                 break;
 
             case 'exits':
-                this.addOutput(this.currentRoom.getExitsString(), "exits");
+                this.addOutput(this.currentRoom.getExitsStringWithConditionals(this.gameState), "exits");
                 break;
 
             default:

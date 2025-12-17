@@ -137,6 +137,31 @@ class Room {
     }
 
     /**
+     * Get exits string with conditional exits shown
+     * @param {object} gameState - Current game state for conditionals
+     * @returns {string} - Formatted exit string
+     */
+    getExitsStringWithConditionals(gameState) {
+        const directions = this.getAvailableDirections();
+        const conditionalExits = [];
+        
+        // Add conditional exits based on game state
+        if (this.id === 'claims' && gameState.basementUnlocked) {
+            conditionalExits.push('down');
+        }
+        if (this.id === 'lobby' && gameState.powerRestored) {
+            conditionalExits.push('up');
+        }
+        
+        const allExits = [...directions, ...conditionalExits];
+        
+        if (allExits.length === 0) {
+            return "No obvious exits.";
+        }
+        return `Exits: ${allExits.join(', ')}`;
+    }
+
+    /**
      * Get a formatted string of items in the room
      * @returns {string} - Formatted items string
      */

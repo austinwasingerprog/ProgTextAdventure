@@ -132,7 +132,7 @@ function initializeGame() {
         "The once-bright lobby is now pitch black except for emergency exit signs. " +
         "Shadows dance on the walls. You hear distant sounds - footsteps? Something else? " +
         "The main entrance is locked from the outside. You'll need another way out. " +
-        "An elevator door leads UP, but it's currently without power."
+        "There's an elevator, but it appears to be without power."
     );
     lobby.addItem(energydrink);
 
@@ -142,7 +142,7 @@ function initializeGame() {
         "Claims Department - Contaminated",
         "A chemical smell fills this room. Papers float through the air from a broken AC unit. " +
         "Your eyes water and your throat burns. Something is VERY wrong here. Don't stay long! " +
-        "A heavy metal door marked 'BASEMENT - ELECTRICAL' is locked tight. You'll need a key."
+        "A heavy metal door marked 'BASEMENT - ELECTRICAL' is locked tight."
     );
     claims.setDangerous("💀 The toxic fumes are hurting you!");
     claims.addItem(firstaid);
@@ -172,7 +172,7 @@ function initializeGame() {
         "roof",
         "Roof Access",
         "Fresh air! You emerge onto the roof. The city lights twinkle in the distance. " +
-        "You can see a fire escape ladder leading down to the street. Type 'escape' to climb down and WIN!"
+        "You can see a fire escape ladder leading down to the street. Freedom is so close!"
     );
     
     // Room 7: Victory! (handled specially in game logic)
