@@ -1,6 +1,6 @@
 /**
- * Game Data - Progressive Insurance Adventure
- * Defines all rooms and their connections
+ * Game Data - Dark Survival Progressive Insurance Adventure
+ * Defines all rooms, items, and their connections
  * This is where the adventure content is stored
  */
 
@@ -11,99 +11,153 @@
 function initializeGame() {
     const graph = new AdventureGraph();
 
-    // Create all 5 rooms with Progressive Insurance theme
+    // Create items first
+    const flashlight = new Item(
+        'flashlight',
+        'Flashlight',
+        'A heavy-duty flashlight. Still has some battery left.',
+        'tool'
+    );
+
+    const keycard = new Item(
+        'keycard',
+        'Security Keycard',
+        'Your security keycard. It should open most doors in the building.',
+        'key'
+    );
+
+    const firstaid = new Item(
+        'medkit',
+        'First Aid Kit',
+        'A medical kit with bandages and supplies.',
+        'consumable'
+    ).setUsable((game) => {
+        game.modifyHealth(30);
+        const index = game.inventory.findIndex(item => item.id === 'medkit');
+        game.inventory.splice(index, 1);
+        game.addOutput("You use the first aid kit.", "success");
+    });
+
+    const energydrink = new Item(
+        'energy',
+        'Energy Drink',
+        'A can of high-caffeine energy drink.',
+        'consumable'
+    ).setUsable((game) => {
+        game.modifyEnergy(40);
+        const index = game.inventory.findIndex(item => item.id === 'energy');
+        game.inventory.splice(index, 1);
+        game.addOutput("You chug the energy drink. You feel more alert!", "success");
+    });
+
+    const basement_key = new Item(
+        'basement-key',
+        'Rusty Basement Key',
+        'An old key labeled "ELECTRICAL". Might fit the basement door.',
+        'key'
+    );
+
+    const fuse = new Item(
+        'fuse',
+        'Replacement Fuse',
+        'A heavy electrical fuse. This could restore power.',
+        'tool'
+    );
+
+    // Create all 6 rooms with dark survival theme
     
-    // Room 1: Lobby - The starting point
+    // Room 1: Security Office (Start) - Safe zone
+    const security = new Room(
+        "security",
+        "Security Office",
+        "Your small security office. Monitors flicker with static. Papers are scattered " +
+        "everywhere. The emergency lights cast an eerie red glow. This is the only place " +
+        "that feels safe right now."
+    );
+    security.addItem(flashlight);
+    security.addItem(keycard);
+
+    // Room 2: Dark Lobby - Creepy but safe
     const lobby = new Room(
         "lobby",
-        "Progressive Insurance Lobby",
-        "You stand in the bright, modern lobby of Progressive Insurance headquarters. " +
-        "The iconic white and blue colors surround you. A large portrait of Flo, the " +
-        "cheerful Progressive spokesperson, hangs on the wall with her signature smile. " +
-        "There's a reception desk ahead, and hallways lead in different directions."
+        "Reception Lobby",
+        "The once-bright lobby is now pitch black except for emergency exit signs. " +
+        "Shadows dance on the walls. You hear distant sounds - footsteps? Something else? " +
+        "The main entrance is locked from the outside. You'll need another way out."
     );
+    lobby.addItem(energydrink);
 
-    // Room 2: Claims Department - North from lobby
-    const claimsDept = new Room(
+    // Room 3: Claims Department - DANGEROUS (health drain)
+    const claims = new Room(
         "claims",
-        "Claims Processing Department",
-        "You enter a busy office filled with adjusters reviewing accident reports and " +
-        "processing claims. Desks are covered with paperwork, coffee cups, and photos " +
-        "of vehicles in various states of distress. A banner reads 'We'll Get You Back " +
-        "on the Road!' You can hear the clicking of keyboards and occasional phone " +
-        "conversations about deductibles and coverage."
+        "Claims Department - Contaminated",
+        "A chemical smell fills this room. Papers float through the air from a broken AC unit. " +
+        "Your eyes water and your throat burns. Something is VERY wrong here. Don't stay long!"
+    );
+    claims.setDangerous("💀 The toxic fumes are hurting you!");
+    claims.addItem(firstaid);
+
+    // Room 4: Server Room - Safe but dark
+    const servers = new Room(
+        "servers",
+        "Server Room",
+        "Rows of dark server racks hum quietly on backup power. The blue indicator lights " +
+        "provide minimal illumination. It's cold in here - very cold. You can see your breath."
+    );
+    servers.addItem(basement_key);
+
+    // Room 5: Basement - DANGEROUS and has power solution
+    const basement = new Room(
+        "basement",
+        "Basement - Electrical Room",
+        "The basement is flooded with ankle-deep water. Exposed wires dangle from the ceiling. " +
+        "The main breaker panel is here, but you need the right fuse to restore power. " +
+        "Water drips from pipes overhead. Each step sends ripples through the dark water."
+    );
+    basement.setDangerous("⚡ The water is electrified! You're being shocked!");
+    basement.addItem(fuse);
+
+    // Room 6: Roof Access - Escape route
+    const roof = new Room(
+        "roof",
+        "Roof Access",
+        "Fresh air! You emerge onto the roof. The city lights twinkle in the distance. " +
+        "You can see a fire escape leading down to the street. Freedom is so close..."
     );
 
-    // Room 3: Name Your Price Tool Room - East from lobby
-    const nameYourPrice = new Room(
-        "pricing",
-        "Name Your Price Tool Lab",
-        "This high-tech room houses Progressive's famous 'Name Your Price' tool. Large " +
-        "screens display real-time insurance quotes adjusting based on coverage options. " +
-        "A whiteboard shows various discount combinations: Safe Driver, Multi-Policy, " +
-        "Snapshot®. The walls are decorated with giant price tags and calculator graphics. " +
-        "Innovation meets affordability here!"
-    );
-
-    // Room 4: Marketing Department - South from lobby
-    const marketing = new Room(
-        "marketing",
-        "Marketing & Advertising Department",
-        "Welcome to the creative hub where Flo's commercials are born! Storyboards line " +
-        "the walls showing various Progressive ad campaigns. Props from commercials are " +
-        "scattered around: Flo's signature white apron, the 'Becoming Your Parents' " +
-        "props, and even a miniature version of the Progressive store. You can feel the " +
-        "creative energy in the air."
-    );
-
-    // Room 5: Conference Room - West from lobby, also accessible from claims
-    const conference = new Room(
-        "conference",
-        "Executive Conference Room",
-        "An impressive corner conference room with floor-to-ceiling windows overlooking " +
-        "the city. A large mahogany table dominates the center, surrounded by ergonomic " +
-        "chairs. On the wall, a presentation displays Progressive's growth charts and " +
-        "customer satisfaction ratings. A plaque reads 'Saving Drivers Money Since 1937.' " +
-        "Coffee and pastries sit on a side table."
-    );
-
-    // Define all the connections between rooms
-    
-    // Lobby connections (center hub)
-    lobby
-        .addExit("north", "claims")
-        .addExit("east", "pricing")
-        .addExit("south", "marketing")
-        .addExit("west", "conference");
-
-    // Claims Department connections
-    claimsDept
-        .addExit("south", "lobby")
-        .addExit("west", "conference");
-
-    // Name Your Price Tool Lab connections
-    nameYourPrice
-        .addExit("west", "lobby")
-        .addExit("south", "marketing");
-
-    // Marketing Department connections
-    marketing
+    // Define connections
+    security
         .addExit("north", "lobby")
-        .addExit("east", "pricing");
+        .addExit("east", "servers");
 
-    // Conference Room connections
-    conference
-        .addExit("east", "lobby")
+    lobby
+        .addExit("south", "security")
+        .addExit("east", "claims")
+        .addExit("up", "roof"); // Can only use after restoring power
+
+    claims
+        .addExit("west", "lobby")
+        .addExit("down", "basement");
+
+    servers
+        .addExit("west", "security")
         .addExit("north", "claims");
 
-    // Add all rooms to the graph
+    basement
+        .addExit("up", "claims");
+
+    roof
+        .addExit("down", "lobby");
+
+    // Build graph
     graph
+        .addRoom(security)
         .addRoom(lobby)
-        .addRoom(claimsDept)
-        .addRoom(nameYourPrice)
-        .addRoom(marketing)
-        .addRoom(conference)
-        .setStartRoom("lobby");
+        .addRoom(claims)
+        .addRoom(servers)
+        .addRoom(basement)
+        .addRoom(roof)
+        .setStartRoom("security");
 
     // Validate the graph
     const validation = graph.validate();

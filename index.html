@@ -3,15 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flo's Adventure - Progressive Insurance Quest</title>
+    <title>Progressive Insurance: Night Shift</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🏢 Flo's Adventure</h1>
-            <p class="subtitle">A Progressive Insurance Text Adventure</p>
+            <h1>� PROGRESSIVE INSURANCE: NIGHT SHIFT 🌑</h1>
+            <p class="subtitle">A Dark Survival Text Adventure</p>
         </header>
+        
+        <div class="stats-bar">
+            <div class="stat">
+                <div class="stat-label">HEALTH</div>
+                <div class="stat-value" id="healthBar">❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️ 100/100</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">ENERGY</div>
+                <div class="stat-value" id="energyBar">⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡ 100/100</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">INVENTORY</div>
+                <div class="stat-value">🎒 <span id="inventoryCount">0/10</span></div>
+            </div>
+        </div>
         
         <div class="game-wrapper">
             <div id="output" class="output-area"></div>
@@ -20,14 +35,14 @@
                 <input 
                     type="text" 
                     id="commandInput" 
-                    placeholder="Enter command (e.g., north, south, east, west, help)..."
+                    placeholder="Enter command..."
                     autofocus
                 />
             </div>
         </div>
         
         <div class="debug-controls">
-            <button id="debugBtn" class="debug-button">🐛 Open Debug View</button>
+            <button id="debugBtn" class="debug-button">🐛 DEBUG VIEW</button>
         </div>
     </div>
 

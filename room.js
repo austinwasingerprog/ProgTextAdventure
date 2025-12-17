@@ -1,5 +1,5 @@
 /**
- * Room Class
+ * Room Class - Enhanced with items and dangers
  * Represents a single room/node in the adventure graph
  * Each room has an ID, title, description, and connections to other rooms
  */
@@ -14,6 +14,12 @@ class Room {
         this.title = title;
         this.description = description;
         this.exits = {}; // Direction -> Room ID mapping
+        this.items = []; // Items in this room
+        this.visited = false;
+        this.isDangerous = false; // Drains health over time
+        this.dangerMessage = "";
+        this.isLocked = false;
+        this.requiredItem = null; // Item needed to unlock
     }
 
     /**
@@ -25,6 +31,71 @@ class Room {
     addExit(direction, destinationId) {
         this.exits[direction.toLowerCase()] = destinationId;
         return this; // Enable chaining
+    }
+
+    /**
+     * Add an item to this room
+     * @param {Item} item - Item to add
+     * @returns {Room} - Returns this for method chaining
+     */
+    addItem(item) {
+        this.items.push(item);
+        return this;
+    }
+
+    /**
+     * Remove an item from this room
+     * @param {string} itemId - ID of the item to remove
+     * @returns {Item|null} - The removed item or null
+     */
+    removeItem(itemId) {
+        const index = this.items.findIndex(item => item.id === itemId);
+        if (index !== -1) {
+            return this.items.splice(index, 1)[0];
+        }
+        return null;
+    }
+
+    /**
+     * Check if room has an item
+     * @param {string} itemId - ID of the item to check
+     * @returns {boolean} - True if item exists in room
+     */
+    hasItem(itemId) {
+        return this.items.some(item => item.id === itemId);
+    }
+
+    /**
+     * Get an item from this room
+     * @param {string} itemId - ID of the item to get
+     * @returns {Item|null} - The item or null
+     */
+    getItem(itemId) {
+        return this.items.find(item => item.id === itemId);
+    }
+
+    /**
+     * Make this room dangerous
+     * @param {string} message - Message to show when in danger
+     * @returns {Room} - Returns this for method chaining
+     */
+    setDangerous(message) {
+        this.isDangerous = true;
+        this.dangerMessage = message;
+        return this;
+    }
+
+    /**
+     * Lock an exit requiring an item
+     * @param {string} direction - Direction to lock
+     * @param {string} requiredItemId - Item needed to unlock
+     * @returns {Room} - Returns this for method chaining
+     */
+    lockExit(direction, requiredItemId) {
+        this.isLocked = true;
+        this.exits[direction].locked = true;
+        this.exits[direction].requiredItem = requiredItemId;
+        return this;
     }
 
     /**
@@ -66,6 +137,18 @@ class Room {
     }
 
     /**
+     * Get a formatted string of items in the room
+     * @returns {string} - Formatted items string
+     */
+    getItemsString() {
+        if (this.items.length === 0) {
+            return "";
+        }
+        const itemNames = this.items.map(item => `${item.name} [${item.id}]`);
+        return `\nYou see: ${itemNames.join(', ')}`;
+    }
+
+    /**
      * Get room information for debugging
      * @returns {object} - Object with room details
      */
@@ -75,7 +158,41 @@ class Room {
             title: this.title,
             description: this.description,
             exits: { ...this.exits },
-            exitCount: Object.keys(this.exits).length
+            exitCount: Object.keys(this.exits).length,
+            itemCount: this.items.length,
+            isDangerous: this.isDangerous
         };
+    }
+}
+
+/**
+ * Item Class
+ * Represents an item that can be picked up and used
+ */
+class Item {
+    /**
+     * @param {string} id - Unique identifier for the item
+     * @param {string} name - Display name of the item
+     * @param {string} description - Description of the item
+     * @param {string} type - Type of item (key, consumable, tool, misc)
+     */
+    constructor(id, name, description, type = 'misc') {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.type = type; // 'key', 'consumable', 'tool', 'misc'
+        this.canUse = false;
+        this.useEffect = null;
+    }
+
+    /**
+     * Make this item usable with an effect
+     * @param {Function} effect - Function to execute when used
+     * @returns {Item} - Returns this for method chaining
+     */
+    setUsable(effect) {
+        this.canUse = true;
+        this.useEffect = effect;
+        return this;
     }
 }

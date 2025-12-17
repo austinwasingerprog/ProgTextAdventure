@@ -1,6 +1,6 @@
 /**
- * Main Game Engine
- * Handles game loop, user input, and UI updates
+ * Main Game Engine - Enhanced with Survival Mechanics
+ * Handles game loop, user input, UI updates, and survival systems
  */
 
 class Game {
@@ -11,6 +11,18 @@ class Game {
         this.inputElement = document.getElementById('commandInput');
         this.commandHistory = [];
         this.historyIndex = -1;
+        
+        // Player stats
+        this.health = 100;
+        this.maxHealth = 100;
+        this.energy = 100;
+        this.maxEnergy = 100;
+        this.inventory = [];
+        this.maxInventorySize = 10;
+        
+        // Game state
+        this.turns = 0;
+        this.isDead = false;
     }
 
     /**
@@ -20,6 +32,8 @@ class Game {
         this.setupEventListeners();
         this.displayWelcome();
         this.displayRoom(this.currentRoom);
+        this.updateStats();
+        this.startHealthTick();
     }
 
     /**
@@ -30,7 +44,7 @@ class Game {
         this.inputElement.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 const command = this.inputElement.value.trim();
-                if (command) {
+                if (command && !this.isDead) {
                     this.processCommand(command);
                     this.commandHistory.push(command);
                     this.historyIndex = this.commandHistory.length;
@@ -61,37 +75,41 @@ class Game {
     }
 
     /**
+     * Start the health tick timer for dangerous rooms
+     */
+    startHealthTick() {
+        setInterval(() => {
+            if (!this.isDead && this.currentRoom.isDangerous) {
+                this.modifyHealth(-5);
+                if (this.health > 0) {
+                    this.addOutput(`⚠️ ${this.currentRoom.dangerMessage}`, "danger");
+                }
+            }
+            if (!this.isDead && this.energy < this.maxEnergy) {
+                this.energy = Math.min(this.maxEnergy, this.energy + 1);
+                this.updateStats();
+            }
+        }, 3000);
+    }
+
+    /**
      * Display the welcome message
      */
     displayWelcome() {
+        this.addOutput("═".repeat(70), "normal");
+        this.addOutput("� PROGRESSIVE INSURANCE: NIGHT SHIFT �", "room-title");
+        this.addOutput("A Dark Survival Text Adventure", "normal");
+        this.addOutput("═".repeat(70), "normal");
+        this.addOutput("");
         this.addOutput(
-            "=".repeat(70),
-            "normal"
-        );
-        this.addOutput(
-            "🏢 Welcome to Flo's Adventure! 🏢",
-            "room-title"
-        );
-        this.addOutput(
-            "A Progressive Insurance Text Adventure",
-            "normal"
-        );
-        this.addOutput(
-            "=".repeat(70),
+            "It's 2 AM. The Progressive headquarters is eerily quiet. You're a night shift " +
+            "security guard making your rounds when the power suddenly cuts out. Strange noises " +
+            "echo through the halls. You need to survive the night and escape...",
             "normal"
         );
         this.addOutput("");
-        this.addOutput(
-            "You've been invited for a special behind-the-scenes tour of Progressive " +
-            "Insurance headquarters! Explore the building, meet the team, and discover " +
-            "what makes Progressive special.",
-            "normal"
-        );
-        this.addOutput("");
-        this.addOutput(
-            "Commands: north, south, east, west, look, help, stats",
-            "exits"
-        );
+        this.addOutput("💡 New Commands: take [item], drop [item], inventory, use [item], examine [item]", "exits");
+        this.addOutput("📊 Watch your health and energy bars at the top!", "exits");
         this.addOutput("");
     }
 
@@ -101,11 +119,22 @@ class Game {
     displayRoom(room) {
         if (!room) return;
         
+        this.turns++;
+        room.visited = true;
+        
         this.addOutput("");
-        this.addOutput(room.title, "room-title");
+        this.addOutput(`📍 ${room.title}`, "room-title");
         this.addOutput(room.description, "room-description");
+        
+        if (room.items.length > 0) {
+            this.addOutput(room.getItemsString(), "item-list");
+        }
+        
         this.addOutput("");
         this.addOutput(room.getExitsString(), "exits");
+        
+        // Drain energy from moving
+        this.modifyEnergy(-2);
     }
 
     /**
@@ -113,33 +142,49 @@ class Game {
      */
     processCommand(command) {
         const cmd = command.toLowerCase().trim();
+        const parts = cmd.split(' ');
+        const action = parts[0];
+        const target = parts.slice(1).join(' ');
         
-        // Echo the command
-        this.addOutput(`> ${command}`, "normal");
+        this.addOutput(`> ${command}`, "command");
 
-        // Movement commands
-        const directions = ['north', 'south', 'east', 'west', 'n', 's', 'e', 'w'];
-        let direction = cmd;
+        // Movement
+        const directionMap = { 'n': 'north', 's': 'south', 'e': 'east', 'w': 'west' };
+        const direction = directionMap[action] || action;
         
-        // Handle abbreviated directions
-        const directionMap = {
-            'n': 'north',
-            's': 'south',
-            'e': 'east',
-            'w': 'west'
-        };
-        
-        if (directionMap[cmd]) {
-            direction = directionMap[cmd];
-        }
-
-        if (directions.includes(cmd)) {
+        if (['north', 'south', 'east', 'west', 'up', 'down'].includes(direction)) {
             this.movePlayer(direction);
             return;
         }
 
-        // Special commands
-        switch (cmd) {
+        // Inventory commands
+        if (action === 'take' || action === 'get' || action === 'pickup') {
+            this.takeItem(target);
+            return;
+        }
+
+        if (action === 'drop') {
+            this.dropItem(target);
+            return;
+        }
+
+        if (action === 'use') {
+            this.useItem(target);
+            return;
+        }
+
+        if (action === 'examine' || action === 'inspect' || action === 'x') {
+            this.examineItem(target);
+            return;
+        }
+
+        if (action === 'inventory' || action === 'inv' || action === 'i') {
+            this.showInventory();
+            return;
+        }
+
+        // Standard commands
+        switch (action) {
             case 'look':
             case 'l':
                 this.displayRoom(this.currentRoom);
@@ -152,26 +197,17 @@ class Game {
                 break;
 
             case 'stats':
-            case 'statistics':
-                this.displayStats();
-                break;
-
-            case 'map':
-                this.addOutput("Use the debug view to see the map (click the debug button below).", "normal");
+            case 'status':
+                this.displayDetailedStats();
                 break;
 
             case 'exits':
                 this.addOutput(this.currentRoom.getExitsString(), "exits");
                 break;
 
-            case 'where':
-            case 'location':
-                this.addOutput(`You are in: ${this.currentRoom.title} [${this.currentRoom.id}]`, "normal");
-                break;
-
             default:
                 this.addOutput(
-                    `I don't understand "${command}". Type 'help' for a list of commands.`,
+                    `I don't understand "${command}". Type 'help' for commands.`,
                     "error"
                 );
         }
@@ -188,11 +224,185 @@ class Game {
             this.currentRoom = nextRoom;
             this.displayRoom(nextRoom);
         } else {
-            this.addOutput(
-                `You can't go ${direction} from here.`,
-                "error"
-            );
+            this.addOutput(`You can't go ${direction} from here.`, "error");
         }
+    }
+
+    /**
+     * Take an item from the current room
+     */
+    takeItem(itemId) {
+        if (!itemId) {
+            this.addOutput("Take what?", "error");
+            return;
+        }
+
+        if (this.inventory.length >= this.maxInventorySize) {
+            this.addOutput("Your inventory is full!", "error");
+            return;
+        }
+
+        const item = this.currentRoom.removeItem(itemId);
+        if (item) {
+            this.inventory.push(item);
+            this.addOutput(`✅ You take the ${item.name}.`, "success");
+            this.modifyEnergy(-1);
+            this.updateStats();
+        } else {
+            this.addOutput(`There is no "${itemId}" here.`, "error");
+        }
+    }
+
+    /**
+     * Drop an item in the current room
+     */
+    dropItem(itemId) {
+        if (!itemId) {
+            this.addOutput("Drop what?", "error");
+            return;
+        }
+
+        const index = this.inventory.findIndex(item => item.id === itemId);
+        if (index !== -1) {
+            const item = this.inventory.splice(index, 1)[0];
+            this.currentRoom.addItem(item);
+            this.addOutput(`You drop the ${item.name}.`, "normal");
+            this.updateStats();
+        } else {
+            this.addOutput(`You don't have "${itemId}".`, "error");
+        }
+    }
+
+    /**
+     * Use an item from inventory
+     */
+    useItem(itemId) {
+        if (!itemId) {
+            this.addOutput("Use what?", "error");
+            return;
+        }
+
+        const item = this.inventory.find(item => item.id === itemId);
+        if (!item) {
+            this.addOutput(`You don't have "${itemId}".`, "error");
+            return;
+        }
+
+        if (!item.canUse) {
+            this.addOutput(`You can't use the ${item.name} right now.`, "error");
+            return;
+        }
+
+        if (item.useEffect) {
+            item.useEffect(this);
+            this.updateStats();
+        }
+    }
+
+    /**
+     * Examine an item
+     */
+    examineItem(itemId) {
+        if (!itemId) {
+            this.addOutput("Examine what?", "error");
+            return;
+        }
+
+        // Check inventory
+        let item = this.inventory.find(item => item.id === itemId);
+        
+        // Check room
+        if (!item) {
+            item = this.currentRoom.getItem(itemId);
+        }
+
+        if (item) {
+            this.addOutput(`🔍 ${item.name}`, "item-name");
+            this.addOutput(item.description, "normal");
+        } else {
+            this.addOutput(`You don't see "${itemId}" anywhere.`, "error");
+        }
+    }
+
+    /**
+     * Show inventory contents
+     */
+    showInventory() {
+        this.addOutput("");
+        this.addOutput("🎒 INVENTORY", "room-title");
+        
+        if (this.inventory.length === 0) {
+            this.addOutput("Your inventory is empty.", "normal");
+        } else {
+            this.inventory.forEach(item => {
+                this.addOutput(`  • ${item.name} [${item.id}] - ${item.type}`, "item-list");
+            });
+        }
+        this.addOutput(`\nCarrying: ${this.inventory.length}/${this.maxInventorySize}`, "normal");
+        this.addOutput("");
+    }
+
+    /**
+     * Modify player health
+     */
+    modifyHealth(amount) {
+        this.health = Math.max(0, Math.min(this.maxHealth, this.health + amount));
+        this.updateStats();
+        
+        if (this.health <= 0 && !this.isDead) {
+            this.die();
+        } else if (amount < 0) {
+            this.addOutput(`💔 You take ${-amount} damage! (${this.health}/${this.maxHealth} HP)`, "danger");
+        } else if (amount > 0) {
+            this.addOutput(`💚 You restore ${amount} health! (${this.health}/${this.maxHealth} HP)`, "success");
+        }
+    }
+
+    /**
+     * Modify player energy
+     */
+    modifyEnergy(amount) {
+        this.energy = Math.max(0, Math.min(this.maxEnergy, this.energy + amount));
+        this.updateStats();
+        
+        if (this.energy <= 0) {
+            this.addOutput("⚡ You're exhausted! Rest to recover energy.", "warning");
+        }
+    }
+
+    /**
+     * Player death
+     */
+    die() {
+        this.isDead = true;
+        this.addOutput("");
+        this.addOutput("═".repeat(70), "normal");
+        this.addOutput("💀 GAME OVER 💀", "error");
+        this.addOutput("You didn't survive the night shift...", "normal");
+        this.addOutput("═".repeat(70), "normal");
+        this.addOutput("");
+        this.addOutput("Refresh the page to try again.", "normal");
+    }
+
+    /**
+     * Update the stats display
+     */
+    updateStats() {
+        const healthBar = this.createBar(this.health, this.maxHealth, '❤️', '🖤');
+        const energyBar = this.createBar(this.energy, this.maxEnergy, '⚡', '◽');
+        
+        document.getElementById('healthBar').innerHTML = `${healthBar} ${this.health}/${this.maxHealth}`;
+        document.getElementById('energyBar').innerHTML = `${energyBar} ${this.energy}/${this.maxEnergy}`;
+        document.getElementById('inventoryCount').textContent = `${this.inventory.length}/${this.maxInventorySize}`;
+    }
+
+    /**
+     * Create a visual bar
+     */
+    createBar(current, max, filledChar, emptyChar) {
+        const segments = 10;
+        const filled = Math.floor((current / max) * segments);
+        return filledChar.repeat(filled) + emptyChar.repeat(segments - filled);
     }
 
     /**
@@ -200,35 +410,24 @@ class Game {
      */
     displayHelp() {
         this.addOutput("");
-        this.addOutput("📋 Available Commands:", "room-title");
+        this.addOutput("📋 COMMANDS", "room-title");
         this.addOutput("");
-        this.addOutput("Movement:", "normal");
-        this.addOutput("  north, south, east, west (or n, s, e, w) - Move in a direction", "normal");
-        this.addOutput("");
-        this.addOutput("Information:", "normal");
-        this.addOutput("  look (l)      - Look around the current room", "normal");
-        this.addOutput("  exits         - Show available exits", "normal");
-        this.addOutput("  where         - Show current location", "normal");
-        this.addOutput("  stats         - Show game statistics", "normal");
-        this.addOutput("  help (h, ?)   - Show this help message", "normal");
-        this.addOutput("");
-        this.addOutput("Debug:", "normal");
-        this.addOutput("  Click the debug button to see the room graph visualization", "normal");
+        this.addOutput("Movement: north (n), south (s), east (e), west (w), up, down", "normal");
+        this.addOutput("Items: take [item], drop [item], use [item], examine [item]", "normal");
+        this.addOutput("Info: inventory (i), look (l), stats, exits, help (h)", "normal");
         this.addOutput("");
     }
 
     /**
-     * Display game statistics
+     * Display detailed game statistics
      */
-    displayStats() {
-        const stats = this.graph.getStats();
+    displayDetailedStats() {
         this.addOutput("");
-        this.addOutput("📊 Game Statistics:", "room-title");
-        this.addOutput("");
-        this.addOutput(`Total Rooms: ${stats.roomCount}`, "normal");
-        this.addOutput(`Total Connections: ${stats.totalExits}`, "normal");
-        this.addOutput(`Average Exits per Room: ${stats.averageExits}`, "normal");
-        this.addOutput(`Current Location: ${this.currentRoom.title} [${this.currentRoom.id}]`, "normal");
+        this.addOutput("📊 CHARACTER STATUS", "room-title");
+        this.addOutput(`Health: ${this.health}/${this.maxHealth}`, "normal");
+        this.addOutput(`Energy: ${this.energy}/${this.maxEnergy}`, "normal");
+        this.addOutput(`Turns Taken: ${this.turns}`, "normal");
+        this.addOutput(`Current Location: ${this.currentRoom.title}`, "normal");
         this.addOutput("");
     }
 
@@ -240,8 +439,6 @@ class Game {
         line.className = `output-line ${className}`;
         line.textContent = text;
         this.outputElement.appendChild(line);
-        
-        // Scroll to bottom
         this.outputElement.scrollTop = this.outputElement.scrollHeight;
     }
 }
