@@ -225,6 +225,17 @@ header h1 {
     );
 }
 
+.legend-color.conditional {
+    background: #ffff00;
+    background-image: repeating-linear-gradient(
+        90deg,
+        #ffff00,
+        #ffff00 5px,
+        transparent 5px,
+        transparent 10px
+    );
+}
+
 .legend-star {
     color: #ffd700;
     font-size: 1.2em;

@@ -185,8 +185,8 @@ class DebugView {
     calculateNodePositions() {
         const rooms = this.graph.getAllRooms();
         const startRoom = this.graph.getStartRoom();
-        const gridSize = 200; // Increased spacing between rooms
-        const levelHeight = 350; // Vertical spacing between levels (increased for better separation)
+        const gridSize = 250; // Increased spacing between rooms to prevent overlap
+        const levelHeight = 400; // Vertical spacing between levels (increased for better separation)
         const nodeRadius = 50;
         
         // Start with the starting room at center
@@ -247,10 +247,37 @@ class DebugView {
                 
                 const destRoom = this.graph.getRoom(destinationId);
                 if (destRoom) {
-                    positions.set(destinationId, { x: newX, y: newY, radius: nodeRadius, level: newLevel });
+                    // Check for collision with existing nodes at the same level
+                    let finalX = newX;
+                    let finalY = newY;
+                    let collisionFound = false;
+                    
+                    for (const [existingId, existingPos] of positions.entries()) {
+                        if (existingPos.level === newLevel) {
+                            const distance = Math.sqrt(
+                                Math.pow(finalX - existingPos.x, 2) + 
+                                Math.pow(finalY - existingPos.y, 2)
+                            );
+                            
+                            // If too close, offset the new position
+                            if (distance < gridSize * 0.9) {
+                                collisionFound = true;
+                                // Offset perpendicular to the direction of movement
+                                if (offset.x !== 0) {
+                                    // Moving horizontally, offset vertically
+                                    finalY += gridSize * 0.5 * (Math.random() > 0.5 ? 1 : -1);
+                                } else if (offset.y !== 0) {
+                                    // Moving vertically, offset horizontally
+                                    finalX += gridSize * 0.5 * (Math.random() > 0.5 ? 1 : -1);
+                                }
+                            }
+                        }
+                    }
+                    
+                    positions.set(destinationId, { x: finalX, y: finalY, radius: nodeRadius, level: newLevel });
                     roomLevels.set(destinationId, newLevel);
                     positioned.add(destinationId);
-                    queue.push({ room: destRoom, x: newX, y: newY, level: newLevel });
+                    queue.push({ room: destRoom, x: finalX, y: finalY, level: newLevel });
                 }
             }
         }
@@ -263,10 +290,10 @@ class DebugView {
                 
                 // Special positioning for known conditional rooms
                 if (room.id === 'roof') {
-                    // Position roof above lobby, slightly offset to avoid overlap
+                    // Position roof above lobby, with proper spacing
                     const lobbyPos = positions.get('lobby');
                     if (lobbyPos) {
-                        x = lobbyPos.x + gridSize * 0.4; // Offset to the right
+                        x = lobbyPos.x;
                         y = centerY - levelHeight;
                         level = -1;
                     } else {
@@ -275,10 +302,10 @@ class DebugView {
                         level = -1;
                     }
                 } else if (room.id === 'basement') {
-                    // Position basement below claims, slightly offset to avoid overlap
+                    // Position basement below claims, with proper spacing
                     const claimsPos = positions.get('claims');
                     if (claimsPos) {
-                        x = claimsPos.x - gridSize * 0.4; // Offset to the left
+                        x = claimsPos.x;
                         y = centerY + levelHeight;
                         level = 1;
                     } else {
@@ -286,16 +313,49 @@ class DebugView {
                         y = centerY + levelHeight;
                         level = 1;
                     }
+                } else if (room.id === 'boardroom') {
+                    // Position boardroom north of executive-hall
+                    const hallPos = positions.get('executive-hall');
+                    if (hallPos) {
+                        x = hallPos.x;
+                        y = hallPos.y - gridSize;
+                        level = hallPos.level || 0;
+                    } else {
+                        x = centerX + gridSize * 2;
+                        y = centerY - gridSize;
+                        level = 0;
+                    }
+                } else if (room.id === 'research-lab') {
+                    // Position research-lab east of lab-hall
+                    const labHallPos = positions.get('lab-hall');
+                    if (labHallPos) {
+                        x = labHallPos.x + gridSize;
+                        y = labHallPos.y;
+                        level = labHallPos.level || 0;
+                    } else {
+                        x = centerX + gridSize * 3;
+                        y = centerY + gridSize;
+                        level = 0;
+                    }
                 } else if (room.id === 'freedom') {
                     // Position freedom room off to the side (special win state)
-                    x = centerX + gridSize * 3;
-                    y = centerY - levelHeight;
-                    level = -1;
+                    const roofPos = positions.get('roof');
+                    if (roofPos) {
+                        x = roofPos.x + gridSize * 1.5;
+                        y = roofPos.y;
+                        level = -1;
+                    } else {
+                        x = centerX + gridSize * 4;
+                        y = centerY - levelHeight;
+                        level = -1;
+                    }
                 } else {
-                    // Place other unconnected rooms in a row at the right side
-                    x = centerX + gridSize * 3;
-                    y = centerY + (index - rooms.length / 2) * gridSize * 0.5;
+                    // Place other unconnected rooms in a spread out grid
+                    const unconnectedOffset = positioned.size;
+                    x = centerX + gridSize * 4;
+                    y = centerY + (unconnectedOffset * gridSize * 0.7) - (rooms.length * gridSize * 0.35);
                     level = 0;
+                    console.log(`Unpositioned room: ${room.id} at ${x}, ${y}`);
                 }
                 
                 positions.set(room.id, { x, y, radius: nodeRadius, level });
@@ -453,6 +513,60 @@ class DebugView {
             ctx.fillRect(midX - textWidth/2 - 5, midY - 10, textWidth + 10, 20);
             
             ctx.fillStyle = isVerticalMovement ? '#ff9900' : '#4fc3f7';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, midX, midY);
+        }
+        
+        // Draw conditional connections with dashed lines
+        this.drawConditionalConnections();
+    }
+
+    /**
+     * Draw conditional/locked connections
+     */
+    drawConditionalConnections() {
+        const ctx = this.ctx;
+        const conditionalPairs = [
+            { from: 'lobby', to: 'roof', label: 'up (power)' },
+            { from: 'claims', to: 'basement', label: 'down (key)' },
+            { from: 'executive-hall', to: 'boardroom', label: 'north (card)' },
+            { from: 'lab-hall', to: 'research-lab', label: 'east (key)' }
+        ];
+
+        for (const { from, to, label } of conditionalPairs) {
+            const startPos = this.nodePositions.get(from);
+            const endPos = this.nodePositions.get(to);
+
+            if (!startPos || !endPos) continue;
+
+            const startX = startPos.x;
+            const startY = startPos.y;
+            const endX = endPos.x;
+            const endY = endPos.y;
+
+            // Draw dashed line
+            ctx.setLineDash([10, 5]);
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw label
+            const midX = (startX + endX) / 2;
+            const midY = (startY + endY) / 2;
+            
+            ctx.font = 'italic 11px Arial';
+            const textWidth = ctx.measureText(label).width;
+            
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(midX - textWidth/2 - 4, midY - 9, textWidth + 8, 18);
+            
+            ctx.fillStyle = '#ffff00';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(label, midX, midY);
@@ -679,7 +793,7 @@ class DebugView3D {
             0.1,
             1000
         );
-        this.camera.position.set(15, 15, 15);
+        this.camera.position.set(25, 20, 25);
         this.camera.lookAt(0, 0, 0);
 
         // Create renderer
@@ -706,8 +820,8 @@ class DebugView3D {
         const visited = new Set();
         const queue = [{ room: startRoom, x: 0, y: 0, z: 0 }];
         
-        const spacing = 5; // Units between rooms
-        const verticalSpacing = 6; // Units for vertical levels
+        const spacing = 7; // Increased units between rooms for better spacing
+        const verticalSpacing = 8; // Increased units for vertical levels
 
         // Direction mappings (X = East-West, Z = North-South, Y = Up-Down)
         const directionOffsets = {
@@ -725,7 +839,26 @@ class DebugView3D {
             if (visited.has(room.id)) continue;
             visited.add(room.id);
 
-            this.nodePositions.set(room.id, { x, y, z, room });
+            // Check for collision with existing nodes
+            let finalX = x;
+            let finalY = y;
+            let finalZ = z;
+            
+            for (const [existingId, existingPos] of this.nodePositions.entries()) {
+                const distance = Math.sqrt(
+                    Math.pow(finalX - existingPos.x, 2) + 
+                    Math.pow(finalY - existingPos.y, 2) + 
+                    Math.pow(finalZ - existingPos.z, 2)
+                );
+                
+                // If too close, offset slightly
+                if (distance < spacing * 0.8) {
+                    finalX += spacing * 0.3;
+                    finalZ += spacing * 0.3;
+                }
+            }
+
+            this.nodePositions.set(room.id, { x: finalX, y: finalY, z: finalZ, room });
 
             // Queue adjacent rooms
             for (const [direction, targetId] of Object.entries(room.exits)) {
@@ -736,9 +869,9 @@ class DebugView3D {
                         if (targetRoom) {
                             queue.push({
                                 room: targetRoom,
-                                x: x + offset.x,
-                                y: y + offset.y,
-                                z: z + offset.z
+                                x: finalX + offset.x,
+                                y: finalY + offset.y,
+                                z: finalZ + offset.z
                             });
                         }
                     }
@@ -776,23 +909,49 @@ class DebugView3D {
                         y = -verticalSpacing;
                         z = 0;
                     }
+                } else if (room.id === 'boardroom') {
+                    // Position boardroom north of executive-hall (conditional connection)
+                    const hallPos = this.nodePositions.get('executive-hall');
+                    if (hallPos) {
+                        x = hallPos.x;
+                        y = hallPos.y;
+                        z = hallPos.z - spacing;
+                    } else {
+                        x = spacing * 2;
+                        y = 0;
+                        z = -spacing * 2;
+                    }
+                } else if (room.id === 'research-lab') {
+                    // Position research-lab east of lab-hall (conditional connection)
+                    const labHallPos = this.nodePositions.get('lab-hall');
+                    if (labHallPos) {
+                        x = labHallPos.x + spacing;
+                        y = labHallPos.y;
+                        z = labHallPos.z;
+                    } else {
+                        x = spacing * 3;
+                        y = 0;
+                        z = spacing * 2;
+                    }
                 } else if (room.id === 'freedom') {
                     // Position freedom room next to roof (special win state)
                     const roofPos = this.nodePositions.get('roof');
                     if (roofPos) {
-                        x = roofPos.x + spacing;
+                        x = roofPos.x + spacing * 1.5;
                         y = roofPos.y;
                         z = roofPos.z;
                     } else {
-                        x = spacing * 3;
+                        x = spacing * 4;
                         y = verticalSpacing;
                         z = 0;
                     }
                 } else {
                     // Place other unconnected rooms off to the side
-                    x = spacing * 4;
+                    const unconnectedIndex = Array.from(this.nodePositions.keys()).length;
+                    x = spacing * 5;
                     y = 0;
-                    z = Math.random() * spacing * 2 - spacing;
+                    z = (unconnectedIndex % 5) * spacing * 1.5 - spacing * 2;
+                    console.log(`3D: Unpositioned room: ${room.id} at (${x}, ${y}, ${z})`);
                 }
                 
                 this.nodePositions.set(room.id, { x, y, z, room });
@@ -944,6 +1103,53 @@ class DebugView3D {
                 this.scene.add(arrowHelper);
             }
         }
+        
+        // Add conditional connection indicators (dashed lines)
+        this.addConditionalConnections();
+    }
+
+    /**
+     * Add dashed lines for conditional connections
+     */
+    addConditionalConnections() {
+        const conditionalPairs = [
+            ['lobby', 'roof'],                    // Power required
+            ['claims', 'basement'],               // Key required
+            ['executive-hall', 'boardroom'],      // Access card required
+            ['lab-hall', 'research-lab']          // Lab key required
+        ];
+
+        for (const [roomId, targetId] of conditionalPairs) {
+            const pos = this.nodePositions.get(roomId);
+            const targetPos = this.nodePositions.get(targetId);
+
+            if (!pos || !targetPos) continue;
+
+            // Create dashed line
+            const points = [];
+            points.push(new THREE.Vector3(pos.x, pos.y, pos.z));
+            points.push(new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z));
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            
+            // Determine if vertical or cardinal
+            const isVertical = Math.abs(pos.y - targetPos.y) > 0.1;
+            const color = isVertical ? 0xff9900 : 0xffff00; // Yellow for conditional cardinal
+            
+            const material = new THREE.LineDashedMaterial({ 
+                color: color,
+                linewidth: 1,
+                dashSize: 0.5,
+                gapSize: 0.3,
+                opacity: 0.5,
+                transparent: true
+            });
+            
+            const line = new THREE.Line(geometry, material);
+            line.computeLineDistances(); // Required for dashed lines
+            this.connectionLines.push(line);
+            this.scene.add(line);
+        }
     }
 
     /**
@@ -963,12 +1169,12 @@ class DebugView3D {
         light2.position.set(-10, -10, -10);
         this.scene.add(light2);
 
-        // Add a grid helper
-        const gridHelper = new THREE.GridHelper(50, 50, 0x444444, 0x222222);
+        // Add a grid helper (increased size for larger space)
+        const gridHelper = new THREE.GridHelper(80, 80, 0x444444, 0x222222);
         this.scene.add(gridHelper);
 
-        // Add axis helper
-        const axesHelper = new THREE.AxesHelper(10);
+        // Add axis helper (increased size)
+        const axesHelper = new THREE.AxesHelper(15);
         this.scene.add(axesHelper);
     }
 
