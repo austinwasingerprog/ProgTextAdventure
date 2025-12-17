@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flo's Adventure - Progressive Insurance Quest</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏢 Flo's Adventure</h1>
+            <p class="subtitle">A Progressive Insurance Text Adventure</p>
+        </header>
+        
+        <div class="game-wrapper">
+            <div id="output" class="output-area"></div>
+            
+            <div class="input-area">
+                <input 
+                    type="text" 
+                    id="commandInput" 
+                    placeholder="Enter command (e.g., north, south, east, west, help)..."
+                    autofocus
+                />
+            </div>
+        </div>
+        
+        <div class="debug-controls">
+            <button id="debugBtn" class="debug-button">🐛 Open Debug View</button>
+        </div>
+    </div>
+
+    <script src="room.js"></script>
+    <script src="graph.js"></script>
+    <script src="gameData.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

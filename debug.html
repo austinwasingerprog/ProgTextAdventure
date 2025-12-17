@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug View - Room Graph Visualization</title>
+    <link rel="stylesheet" href="debug.css">
+</head>
+<body>
+    <div class="debug-container">
+        <header>
+            <h1>🐛 Adventure Graph Debug View</h1>
+            <button id="backBtn" class="back-button">← Back to Game</button>
+        </header>
+        
+        <div class="tabs">
+            <button class="tab-button active" data-tab="ascii">ASCII View</button>
+            <button class="tab-button" data-tab="canvas">Canvas View</button>
+        </div>
+        
+        <div class="tab-content" id="asciiTab">
+            <h2>ASCII Room Map</h2>
+            <pre id="asciiMap" class="ascii-map"></pre>
+            
+            <h2>Room Details</h2>
+            <div id="roomList" class="room-list"></div>
+        </div>
+        
+        <div class="tab-content hidden" id="canvasTab">
+            <h2>Interactive Graph View</h2>
+            <canvas id="graphCanvas" width="1200" height="800"></canvas>
+            <div class="canvas-controls">
+                <p>Click and drag to pan • Scroll to zoom • Hover over nodes for details</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="room.js"></script>
+    <script src="graph.js"></script>
+    <script src="gameData.js"></script>
+    <script src="debug.js"></script>
+</body>
+</html>
