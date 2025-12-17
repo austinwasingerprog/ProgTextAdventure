@@ -952,14 +952,19 @@ class DebugView3D {
      * Set up camera controls
      */
     setupControls() {
-        // Simple orbit controls implementation
+        // Orbit controls with proper look-at target
+        this.target = new THREE.Vector3(0, 0, 0); // Camera look-at target
         let isRotating = false;
         let isPanning = false;
         let previousMousePosition = { x: 0, y: 0 };
 
         this.renderer.domElement.addEventListener('mousedown', (e) => {
             if (e.button === 0) { // Left click
-                isRotating = true;
+                if (e.shiftKey) {
+                    isPanning = true;
+                } else {
+                    isRotating = true;
+                }
             } else if (e.button === 2) { // Right click
                 isPanning = true;
                 e.preventDefault();
@@ -974,40 +979,44 @@ class DebugView3D {
 
                 const rotationSpeed = 0.005;
                 
-                // Rotate camera around the scene
-                const radius = Math.sqrt(
-                    this.camera.position.x ** 2 +
-                    this.camera.position.y ** 2 +
-                    this.camera.position.z ** 2
-                );
+                // Calculate camera offset from target
+                const offset = new THREE.Vector3().subVectors(this.camera.position, this.target);
+                const radius = offset.length();
                 
-                const theta = Math.atan2(this.camera.position.x, this.camera.position.z);
-                const phi = Math.acos(this.camera.position.y / radius);
+                const theta = Math.atan2(offset.x, offset.z);
+                const phi = Math.acos(offset.y / radius);
 
                 const newTheta = theta - deltaX * rotationSpeed;
                 const newPhi = Math.max(0.1, Math.min(Math.PI - 0.1, phi - deltaY * rotationSpeed));
 
-                this.camera.position.x = radius * Math.sin(newPhi) * Math.sin(newTheta);
-                this.camera.position.y = radius * Math.cos(newPhi);
-                this.camera.position.z = radius * Math.sin(newPhi) * Math.cos(newTheta);
+                offset.x = radius * Math.sin(newPhi) * Math.sin(newTheta);
+                offset.y = radius * Math.cos(newPhi);
+                offset.z = radius * Math.sin(newPhi) * Math.cos(newTheta);
                 
-                this.camera.lookAt(0, 0, 0);
+                this.camera.position.copy(this.target).add(offset);
+                this.camera.lookAt(this.target);
             } else if (isPanning) {
                 const deltaX = e.clientX - previousMousePosition.x;
                 const deltaY = e.clientY - previousMousePosition.y;
 
-                const panSpeed = 0.02;
+                const panSpeed = 0.03;
                 
+                // Get camera right and up vectors
                 const right = new THREE.Vector3();
-                const up = new THREE.Vector3(0, 1, 0);
+                const up = new THREE.Vector3();
                 
-                right.crossVectors(this.camera.position, up).normalize();
+                this.camera.getWorldDirection(right);
+                right.cross(this.camera.up).normalize();
+                up.copy(this.camera.up).normalize();
                 
-                this.camera.position.x -= right.x * deltaX * panSpeed;
-                this.camera.position.z -= right.z * deltaX * panSpeed;
-                this.camera.position.y += deltaY * panSpeed;
+                // Pan both camera and target
+                const panX = right.clone().multiplyScalar(-deltaX * panSpeed);
+                const panY = up.clone().multiplyScalar(deltaY * panSpeed);
                 
-                this.camera.lookAt(0, 0, 0);
+                this.camera.position.add(panX).add(panY);
+                this.target.add(panX).add(panY);
+                
+                this.camera.lookAt(this.target);
             }
 
             previousMousePosition = { x: e.clientX, y: e.clientY };
@@ -1027,11 +1036,12 @@ class DebugView3D {
             const zoomSpeed = 0.1;
             const delta = e.deltaY > 0 ? 1 + zoomSpeed : 1 - zoomSpeed;
             
-            this.camera.position.x *= delta;
-            this.camera.position.y *= delta;
-            this.camera.position.z *= delta;
+            // Zoom by moving camera closer/farther from target
+            const offset = new THREE.Vector3().subVectors(this.camera.position, this.target);
+            offset.multiplyScalar(delta);
+            this.camera.position.copy(this.target).add(offset);
             
-            this.camera.lookAt(0, 0, 0);
+            this.camera.lookAt(this.target);
         });
     }
 
