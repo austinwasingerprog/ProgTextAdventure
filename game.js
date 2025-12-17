@@ -23,6 +23,11 @@ class Game {
         // Game state
         this.turns = 0;
         this.isDead = false;
+        this.hasWon = false;
+        this.gameState = {
+            basementUnlocked: false,
+            powerRestored: false
+        };
     }
 
     /**
@@ -44,7 +49,7 @@ class Game {
         this.inputElement.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 const command = this.inputElement.value.trim();
-                if (command && !this.isDead) {
+                if (command && !this.isDead && !this.hasWon) {
                     this.processCommand(command);
                     this.commandHistory.push(command);
                     this.historyIndex = this.commandHistory.length;
@@ -183,6 +188,12 @@ class Game {
             return;
         }
 
+        // Special game commands
+        if (action === 'escape' || action === 'climb' || cmd === 'climb down') {
+            this.attemptEscape();
+            return;
+        }
+
         // Standard commands
         switch (action) {
             case 'look':
@@ -217,6 +228,25 @@ class Game {
      * Move the player in a direction
      */
     movePlayer(direction) {
+        // Check for special locked/conditional exits
+        if (direction === 'down' && this.currentRoom.id === 'claims') {
+            if (!this.gameState.basementUnlocked) {
+                this.addOutput("The basement door is locked. You need a key.", "error");
+                return;
+            }
+        }
+        
+        if (direction === 'up' && this.currentRoom.id === 'lobby') {
+            if (!this.gameState.powerRestored) {
+                this.addOutput("The elevator has no power. You need to restore electricity first.", "error");
+                return;
+            }
+            // Dynamically add the exit if power is restored
+            if (!this.currentRoom.hasExit('up')) {
+                this.currentRoom.addExit('up', 'roof');
+            }
+        }
+        
         const nextRoom = this.graph.navigate(this.currentRoom.id, direction);
         
         if (nextRoom) {
@@ -226,6 +256,39 @@ class Game {
         } else {
             this.addOutput(`You can't go ${direction} from here.`, "error");
         }
+    }
+
+    /**
+     * Attempt to escape via the fire escape
+     */
+    attemptEscape() {
+        if (this.currentRoom.id === 'roof') {
+            this.winGame();
+        } else {
+            this.addOutput("There's no escape route here.", "error");
+        }
+    }
+
+    /**
+     * Win the game!
+     */
+    winGame() {
+        this.hasWon = true;
+        this.addOutput("");
+        this.addOutput("═".repeat(70), "success");
+        this.addOutput("🎉 YOU ESCAPED! 🎉", "success");
+        this.addOutput("");
+        this.addOutput("You climb down the fire escape and your feet touch the pavement.", "normal");
+        this.addOutput("The cold night air fills your lungs. You made it out alive!", "normal");
+        this.addOutput("The nightmare is over...", "normal");
+        this.addOutput("");
+        this.addOutput("═".repeat(70), "success");
+        this.addOutput("");
+        this.addOutput(`Final Stats: ${this.health}/${this.maxHealth} HP | ${this.turns} turns | ${this.inventory.length} items`, "normal");
+        this.addOutput("");
+        this.addOutput("🏆 CONGRATULATIONS! 🏆", "success");
+        this.addOutput("Refresh the page to play again.", "normal");
+        this.addOutput("");
     }
 
     /**
@@ -415,6 +478,10 @@ class Game {
         this.addOutput("Movement: north (n), south (s), east (e), west (w), up, down", "normal");
         this.addOutput("Items: take [item], drop [item], use [item], examine [item]", "normal");
         this.addOutput("Info: inventory (i), look (l), stats, exits, help (h)", "normal");
+        this.addOutput("Special: escape (when on roof)", "normal");
+        this.addOutput("");
+        this.addOutput("💡 Tip: Use the basement-key at Claims to unlock the basement.", "exits");
+        this.addOutput("💡 Tip: Use the fuse in the basement to restore power.", "exits");
         this.addOutput("");
     }
 
@@ -428,6 +495,10 @@ class Game {
         this.addOutput(`Energy: ${this.energy}/${this.maxEnergy}`, "normal");
         this.addOutput(`Turns Taken: ${this.turns}`, "normal");
         this.addOutput(`Current Location: ${this.currentRoom.title}`, "normal");
+        this.addOutput("");
+        this.addOutput("🔧 PROGRESS", "room-title");
+        this.addOutput(`Basement Unlocked: ${this.gameState.basementUnlocked ? '✅ Yes' : '❌ No'}`, "normal");
+        this.addOutput(`Power Restored: ${this.gameState.powerRestored ? '✅ Yes' : '❌ No'}`, "normal");
         this.addOutput("");
     }
 

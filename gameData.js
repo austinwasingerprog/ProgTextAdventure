@@ -55,14 +55,62 @@ function initializeGame() {
         'Rusty Basement Key',
         'An old key labeled "ELECTRICAL". Might fit the basement door.',
         'key'
-    );
+    ).setUsable((game) => {
+        if (game.currentRoom.id === 'claims' && !game.gameState.basementUnlocked) {
+            game.gameState.basementUnlocked = true;
+            
+            // Dynamically add the basement exit
+            const claimsRoom = game.graph.getRoom('claims');
+            if (claimsRoom && !claimsRoom.hasExit('down')) {
+                claimsRoom.addExit('down', 'basement');
+            }
+            
+            game.addOutput("✅ You unlock the basement door with the rusty key. You hear it creak open below.", "success");
+            game.addOutput("A dark stairway leads DOWN to the basement.", "normal");
+        } else if (game.gameState.basementUnlocked) {
+            game.addOutput("The basement is already unlocked.", "normal");
+        } else {
+            game.addOutput("There's nothing to unlock here. Try using this at the basement door in Claims.", "error");
+        }
+    });
 
     const fuse = new Item(
         'fuse',
         'Replacement Fuse',
         'A heavy electrical fuse. This could restore power.',
         'tool'
-    );
+    ).setUsable((game) => {
+        if (game.currentRoom.id === 'basement' && !game.gameState.powerRestored) {
+            game.gameState.powerRestored = true;
+            game.addOutput("⚡ You install the fuse into the breaker panel...", "success");
+            game.addOutput("", "normal");
+            game.addOutput("CLUNK! The breakers flip on. Lights flicker to life throughout the building!", "success");
+            game.addOutput("The contamination vents in the Claims Department activate and clear the air.", "success");
+            game.addOutput("The elevator to the roof should now be operational from the lobby!", "success");
+            game.addOutput("", "normal");
+            
+            // Remove the item from inventory after use
+            const index = game.inventory.findIndex(item => item.id === 'fuse');
+            game.inventory.splice(index, 1);
+            
+            // Clear dangerous status from claims
+            const claimsRoom = game.graph.getRoom('claims');
+            if (claimsRoom) {
+                claimsRoom.isDangerous = false;
+                claimsRoom.dangerMessage = "";
+            }
+            
+            // Clear dangerous status from basement
+            game.currentRoom.isDangerous = false;
+            game.currentRoom.dangerMessage = "";
+            
+            game.updateStats();
+        } else if (game.gameState.powerRestored) {
+            game.addOutput("The power is already restored.", "normal");
+        } else {
+            game.addOutput("You need to be at the electrical panel in the basement to use this.", "error");
+        }
+    });
 
     // Create all 6 rooms with dark survival theme
     
@@ -83,7 +131,8 @@ function initializeGame() {
         "Reception Lobby",
         "The once-bright lobby is now pitch black except for emergency exit signs. " +
         "Shadows dance on the walls. You hear distant sounds - footsteps? Something else? " +
-        "The main entrance is locked from the outside. You'll need another way out."
+        "The main entrance is locked from the outside. You'll need another way out. " +
+        "An elevator door leads UP, but it's currently without power."
     );
     lobby.addItem(energydrink);
 
@@ -92,7 +141,8 @@ function initializeGame() {
         "claims",
         "Claims Department - Contaminated",
         "A chemical smell fills this room. Papers float through the air from a broken AC unit. " +
-        "Your eyes water and your throat burns. Something is VERY wrong here. Don't stay long!"
+        "Your eyes water and your throat burns. Something is VERY wrong here. Don't stay long! " +
+        "A heavy metal door marked 'BASEMENT - ELECTRICAL' is locked tight. You'll need a key."
     );
     claims.setDangerous("💀 The toxic fumes are hurting you!");
     claims.addItem(firstaid);
@@ -122,7 +172,15 @@ function initializeGame() {
         "roof",
         "Roof Access",
         "Fresh air! You emerge onto the roof. The city lights twinkle in the distance. " +
-        "You can see a fire escape leading down to the street. Freedom is so close..."
+        "You can see a fire escape ladder leading down to the street. Type 'escape' to climb down and WIN!"
+    );
+    
+    // Room 7: Victory! (handled specially in game logic)
+    const freedom = new Room(
+        "freedom",
+        "FREEDOM!",
+        "You climb down the fire escape and your feet touch the pavement. The cold night air " +
+        "fills your lungs. You made it out alive! The nightmare is over..."
     );
 
     // Define connections
@@ -132,12 +190,12 @@ function initializeGame() {
 
     lobby
         .addExit("south", "security")
-        .addExit("east", "claims")
-        .addExit("up", "roof"); // Can only use after restoring power
+        .addExit("east", "claims");
+        // UP exit to roof added dynamically when power is restored
 
     claims
-        .addExit("west", "lobby")
-        .addExit("down", "basement");
+        .addExit("west", "lobby");
+        // DOWN exit to basement added dynamically when unlocked
 
     servers
         .addExit("west", "security")
@@ -148,6 +206,7 @@ function initializeGame() {
 
     roof
         .addExit("down", "lobby");
+        // Escape handled by special command
 
     // Build graph
     graph
@@ -157,6 +216,7 @@ function initializeGame() {
         .addRoom(servers)
         .addRoom(basement)
         .addRoom(roof)
+        .addRoom(freedom)
         .setStartRoom("security");
 
     // Validate the graph

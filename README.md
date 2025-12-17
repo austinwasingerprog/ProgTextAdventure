@@ -61,17 +61,35 @@ text-adventure/
 └── debug.js            # Debug visualization logic
 ```
 
-## 🎯 How to Play
+## � How to Play
 
 1. Open `index.html` in a web browser
-2. Use text commands to navigate:
-   - `north`, `south`, `east`, `west` (or `n`, `s`, `e`, `w`)
-   - `look` or `l` - Examine current room
-   - `help` - Show all commands
-   - `stats` - View game statistics
-   - `exits` - Show available directions
+2. **Your Mission**: Survive the night and escape via the roof!
 
-3. Click the "🐛 Open Debug View" button to see the graph visualization
+### Commands:
+- **Movement**: `north`, `south`, `east`, `west`, `up`, `down` (or `n`, `s`, `e`, `w`)
+- **Items**: `take [item]`, `drop [item]`, `use [item]`, `examine [item]`
+- **Info**: `inventory` (or `i`), `look` (or `l`), `stats`, `exits`, `help`
+- **Special**: `escape` (when on the roof)
+
+### Puzzle Solution (Spoilers!):
+1. 🔦 Take the **flashlight** and **keycard** from Security Office
+2. 🔑 Go to Server Room and find the **basement-key**
+3. ☣️ Navigate to Claims Department (DANGEROUS - toxic fumes!)
+4. 🚪 **USE the basement-key** in Claims to unlock the basement door
+5. ⚡ Go DOWN to the basement (DANGEROUS - electrified water!)
+6. 🔧 Take the **fuse** from the basement
+7. 💡 **USE the fuse** in the basement to restore power (clears toxins!)
+8. 🏢 Return to Lobby and go UP (elevator now works!)
+9. 🪜 On the Roof, type **ESCAPE** to climb down and WIN!
+
+### Tips:
+- ❤️ Dangerous rooms drain health - don't stay too long!
+- ⚡ Movement drains energy - use energy drinks to restore
+- 🩹 Use medkits to heal in emergencies
+- 📊 Watch your health/energy bars at the top
+
+3. Click the "🐛 DEBUG VIEW" button to see the graph visualization
 
 ## 🐛 Debug Features
 
