@@ -145,11 +145,11 @@ class Room {
         const directions = this.getAvailableDirections();
         const conditionalExits = [];
         
-        // Add conditional exits based on game state
-        if (this.id === 'claims' && gameState.basementUnlocked) {
+        // Add conditional exits based on game state (only if not already in directions)
+        if (this.id === 'claims' && gameState.basementUnlocked && !directions.includes('down')) {
             conditionalExits.push('down');
         }
-        if (this.id === 'lobby' && gameState.powerRestored) {
+        if (this.id === 'lobby' && gameState.powerRestored && !directions.includes('up')) {
             conditionalExits.push('up');
         }
         
