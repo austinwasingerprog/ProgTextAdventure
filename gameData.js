@@ -112,7 +112,72 @@ function initializeGame() {
         }
     });
 
-    // Create all 6 rooms with dark survival theme
+    const gasmask = new Item(
+        'gasmask',
+        'Gas Mask',
+        'A protective gas mask. This could protect you from toxic environments.',
+        'tool'
+    );
+
+    const painkiller = new Item(
+        'painkillers',
+        'Pain Killers',
+        'A bottle of strong painkillers. For emergencies.',
+        'consumable'
+    ).setUsable((game) => {
+        game.modifyHealth(20);
+        const index = game.inventory.findIndex(item => item.id === 'painkillers');
+        game.inventory.splice(index, 1);
+        game.addOutput("You swallow some painkillers. The pain subsides a bit.", "success");
+    });
+
+    const coffee = new Item(
+        'coffee',
+        'Cold Coffee',
+        'A half-full cup of cold coffee from your desk. Better than nothing.',
+        'consumable'
+    ).setUsable((game) => {
+        game.modifyEnergy(20);
+        const index = game.inventory.findIndex(item => item.id === 'coffee');
+        game.inventory.splice(index, 1);
+        game.addOutput("You gulp down the cold coffee. Disgusting, but effective.", "success");
+    });
+
+    const batteries = new Item(
+        'batteries',
+        'Fresh Batteries',
+        'A pack of AA batteries. Your flashlight could use these.',
+        'tool'
+    );
+
+    const extinguisher = new Item(
+        'extinguisher',
+        'Fire Extinguisher',
+        'A red fire extinguisher. Might be useful against fire... or something else.',
+        'tool'
+    ).setUsable((game) => {
+        if (game.currentRoom.id === 'datacenter' && game.currentRoom.isDangerous) {
+            game.addOutput("💨 You spray the fire extinguisher at the flames!", "success");
+            game.addOutput("The fire suppressant fills the room. The server fire is out!", "success");
+            game.currentRoom.isDangerous = false;
+            game.currentRoom.dangerMessage = "";
+            game.gameState.fireExtinguished = true;
+            
+            const index = game.inventory.findIndex(item => item.id === 'extinguisher');
+            game.inventory.splice(index, 1);
+        } else {
+            game.addOutput("There's nothing to extinguish here.", "error");
+        }
+    });
+
+    const accesscard = new Item(
+        'access-card',
+        'Executive Access Card',
+        'A high-level access card. Opens restricted areas.',
+        'key'
+    );
+
+    // Create all rooms with dark survival theme
     
     // Room 1: Security Office (Start) - Safe zone
     const security = new Room(
@@ -124,6 +189,7 @@ function initializeGame() {
     );
     security.addItem(flashlight);
     security.addItem(keycard);
+    security.addItem(coffee);
 
     // Room 2: Dark Lobby - Creepy but safe
     const lobby = new Room(
@@ -155,8 +221,71 @@ function initializeGame() {
         "provide minimal illumination. It's cold in here - very cold. You can see your breath."
     );
     servers.addItem(basement_key);
+    servers.addItem(batteries);
 
-    // Room 5: Basement - DANGEROUS and has power solution
+    // Room 5B: Data Center - DANGEROUS (fire/smoke)
+    const datacenter = new Room(
+        "datacenter",
+        "Data Center - ON FIRE",
+        "Smoke billows from a bank of overheated servers! Small flames lick at the equipment. " +
+        "The sprinkler system failed. The heat is intense and smoke fills your lungs. " +
+        "You need to put this out or get out fast!"
+    );
+    datacenter.setDangerous("🔥 The smoke and heat are damaging you!");
+    datacenter.addItem(painkiller);
+
+    // Room 6: Break Room - Safe, has items
+    const breakroom = new Room(
+        "breakroom",
+        "Employee Break Room",
+        "The break room is eerily quiet. Chairs are overturned. Someone left in a hurry. " +
+        "The vending machine glass is cracked. A microwave door hangs open. " +
+        "There's an unsettling stillness here."
+    );
+    breakroom.addItem(energydrink);
+    breakroom.addItem(firstaid);
+
+    // Room 7: Supply Closet - Safe, important items
+    const supply = new Room(
+        "supply",
+        "Supply Closet",
+        "A cramped supply closet filled with cleaning products, paper supplies, and safety equipment. " +
+        "The chemical smell is strong but not dangerous. Emergency supplies line the shelves."
+    );
+    supply.addItem(gasmask);
+    supply.addItem(extinguisher);
+
+    // Room 8: Executive Office - Locked initially
+    const executive = new Room(
+        "executive",
+        "Executive Office",
+        "An opulent corner office with leather furniture and mahogany desk. " +
+        "Floor-to-ceiling windows overlook the city. A wall safe stands open - empty except for documents. " +
+        "Whoever was here left in a panic."
+    );
+    executive.addItem(accesscard);
+
+    // Room 9: Storage Archive - Dark maze-like area
+    const archive = new Room(
+        "archive",
+        "Storage Archive",
+        "Rows of filing cabinets and storage boxes create a maze. The emergency lighting barely " +
+        "penetrates the gloom. Papers are strewn everywhere. You hear strange echoes. " +
+        "Energy drains faster in this disorienting space."
+    );
+
+    // Room 10: Mechanical Room - Dangerous, loud
+    const mechanical = new Room(
+        "mechanical",
+        "Mechanical Room",
+        "The building's HVAC and machinery room. Pipes rattle and hiss. Something is wrong with " +
+        "the pressure system - steam vents periodically. The noise is deafening. " +
+        "Stay too long and the heat exhaustion will get you."
+    );
+    mechanical.setDangerous("💨 Steam vents scald you! The heat is unbearable!");
+    mechanical.addItem(painkiller);
+
+    // Basement - DANGEROUS and has power solution
     const basement = new Room(
         "basement",
         "Basement - Electrical Room",
@@ -167,7 +296,7 @@ function initializeGame() {
     basement.setDangerous("⚡ The water is electrified! You're being shocked!");
     basement.addItem(fuse);
 
-    // Room 6: Roof Access - Escape route
+    // Roof Access - Escape route
     const roof = new Room(
         "roof",
         "Roof Access",
@@ -175,7 +304,7 @@ function initializeGame() {
         "You can see a fire escape ladder leading down to the street. Freedom is so close!"
     );
     
-    // Room 7: Victory! (handled specially in game logic)
+    // Victory! (handled specially in game logic)
     const freedom = new Room(
         "freedom",
         "FREEDOM!",
@@ -186,21 +315,47 @@ function initializeGame() {
     // Define connections
     security
         .addExit("north", "lobby")
-        .addExit("east", "servers");
+        .addExit("east", "servers")
+        .addExit("south", "archive");
 
     lobby
         .addExit("south", "security")
-        .addExit("east", "claims");
+        .addExit("east", "claims")
+        .addExit("west", "breakroom");
         // UP exit to roof added dynamically when power is restored
 
     claims
         .addExit("west", "lobby")
-        .addExit("south", "servers");
+        .addExit("south", "servers")
+        .addExit("north", "executive");
         // DOWN exit to basement added dynamically when unlocked
 
     servers
         .addExit("west", "security")
-        .addExit("north", "claims");
+        .addExit("north", "claims")
+        .addExit("east", "datacenter");
+
+    datacenter
+        .addExit("west", "servers")
+        .addExit("south", "mechanical");
+
+    breakroom
+        .addExit("east", "lobby")
+        .addExit("north", "supply");
+
+    supply
+        .addExit("south", "breakroom");
+
+    executive
+        .addExit("south", "claims");
+
+    archive
+        .addExit("north", "security")
+        .addExit("east", "mechanical");
+
+    mechanical
+        .addExit("west", "archive")
+        .addExit("north", "datacenter");
 
     basement
         .addExit("up", "claims");
@@ -215,6 +370,12 @@ function initializeGame() {
         .addRoom(lobby)
         .addRoom(claims)
         .addRoom(servers)
+        .addRoom(datacenter)
+        .addRoom(breakroom)
+        .addRoom(supply)
+        .addRoom(executive)
+        .addRoom(archive)
+        .addRoom(mechanical)
         .addRoom(basement)
         .addRoom(roof)
         .addRoom(freedom)

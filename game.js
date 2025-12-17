@@ -26,7 +26,9 @@ class Game {
         this.hasWon = false;
         this.gameState = {
             basementUnlocked: false,
-            powerRestored: false
+            powerRestored: false,
+            fireExtinguished: false,
+            executiveUnlocked: false
         };
     }
 
@@ -85,11 +87,29 @@ class Game {
     startHealthTick() {
         setInterval(() => {
             if (!this.isDead && this.currentRoom.isDangerous) {
-                this.modifyHealth(-5);
-                if (this.health > 0) {
-                    this.addOutput(`⚠️ ${this.currentRoom.dangerMessage}`, "danger");
+                // Check for gas mask protection in toxic rooms
+                const hasGasMask = this.inventory.some(item => item.id === 'gasmask');
+                const isToxicRoom = this.currentRoom.id === 'claims' && !this.gameState.powerRestored;
+                
+                if (!(isToxicRoom && hasGasMask)) {
+                    this.modifyHealth(-5);
+                    if (this.health > 0) {
+                        this.addOutput(`⚠️ ${this.currentRoom.dangerMessage}`, "danger");
+                    }
                 }
             }
+            // Energy drain in archive room
+            if (!this.isDead && this.currentRoom.id === 'archive') {
+                this.modifyEnergy(-2);
+                if (this.energy > 0 && this.energy <= 20) {
+                    this.addOutput("🌀 The disorienting maze drains your energy...", "danger");
+                }
+                if (this.energy <= 0) {
+                    this.addOutput("You collapse from exhaustion in the maze!", "error");
+                    this.modifyHealth(-15);
+                }
+            }
+            // Natural energy recovery (slower)
             if (!this.isDead && this.energy < this.maxEnergy) {
                 this.energy = Math.min(this.maxEnergy, this.energy + 1);
                 this.updateStats();
@@ -161,6 +181,12 @@ class Game {
                 "wires are no longer sparking. The breaker panel shows all systems green. You did it!";
         }
         
+        // Update Data Center description if fire is out
+        if (room.id === 'datacenter' && this.gameState.fireExtinguished) {
+            description = "The Data Center is now safe. The fire suppressant foam covers the floor and equipment. " +
+                "The servers are damaged but the fire is out. You can breathe easier now.";
+        }
+        
         this.addOutput(description, "room-description");
         
         if (room.items.length > 0) {
@@ -191,6 +217,10 @@ class Game {
             if (hasKey && !this.gameState.basementUnlocked) {
                 actions.push("💡 You can USE the basement-key here to unlock the basement door");
             }
+            const hasGasMask = this.inventory.some(item => item.id === 'gasmask');
+            if (room.isDangerous && hasGasMask && !this.gameState.powerRestored) {
+                actions.push("🎭 Your gas mask will protect you from the toxic air here");
+            }
         }
         
         if (room.id === 'basement') {
@@ -198,6 +228,17 @@ class Game {
             if (hasFuse && !this.gameState.powerRestored) {
                 actions.push("💡 You can USE the fuse here to restore power to the building");
             }
+        }
+        
+        if (room.id === 'datacenter') {
+            const hasExtinguisher = this.inventory.some(item => item.id === 'extinguisher');
+            if (hasExtinguisher && room.isDangerous) {
+                actions.push("🧯 You can USE the fire extinguisher here to put out the fire");
+            }
+        }
+        
+        if (room.id === 'archive') {
+            actions.push("⚠️ This maze drains your energy faster. Don't stay too long!");
         }
         
         if (room.id === 'roof') {
