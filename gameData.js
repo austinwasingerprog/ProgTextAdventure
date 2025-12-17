@@ -194,7 +194,8 @@ function initializeGame() {
         // UP exit to roof added dynamically when power is restored
 
     claims
-        .addExit("west", "lobby");
+        .addExit("west", "lobby")
+        .addExit("south", "servers");
         // DOWN exit to basement added dynamically when unlocked
 
     servers

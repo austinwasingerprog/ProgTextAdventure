@@ -149,22 +149,132 @@ class DebugView {
     }
 
     /**
-     * Calculate positions for nodes in the canvas
+     * Calculate positions for nodes in the canvas based on cardinal directions
+     * Uses a multi-level system for up/down connections
      */
     calculateNodePositions() {
         const rooms = this.graph.getAllRooms();
+        const startRoom = this.graph.getStartRoom();
+        const gridSize = 200; // Increased spacing between rooms
+        const levelHeight = 350; // Vertical spacing between levels (increased for better separation)
+        const nodeRadius = 50;
+        
+        // Start with the starting room at center
         const centerX = this.canvas.width / 2;
         const centerY = this.canvas.height / 2;
-        const radius = 250;
-
-        // Arrange rooms in a circle for better visibility
-        rooms.forEach((room, index) => {
-            const angle = (index / rooms.length) * Math.PI * 2;
-            const x = centerX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
+        
+        const positioned = new Set();
+        const positions = new Map();
+        const roomLevels = new Map(); // Track which level each room is on
+        
+        // Position the start room first at level 0
+        positions.set(startRoom.id, { x: centerX, y: centerY, radius: nodeRadius, level: 0 });
+        roomLevels.set(startRoom.id, 0);
+        positioned.add(startRoom.id);
+        
+        // Queue for BFS traversal: { room, x, y, level }
+        const queue = [{ room: startRoom, x: centerX, y: centerY, level: 0 }];
+        
+        // Map directions to x,y offsets (level changes handled separately)
+        const directionOffsets = {
+            'north': { x: 0, y: -gridSize, levelChange: 0 },
+            'south': { x: 0, y: gridSize, levelChange: 0 },
+            'east': { x: gridSize, y: 0, levelChange: 0 },
+            'west': { x: -gridSize, y: 0, levelChange: 0 },
+            'up': { x: 0, y: 0, levelChange: -1 }, // Same x position, different level
+            'down': { x: 0, y: 0, levelChange: 1 }  // Same x position, different level
+        };
+        
+        // BFS to position all connected rooms
+        while (queue.length > 0) {
+            const { room, x, y, level } = queue.shift();
             
-            this.nodePositions.set(room.id, { x, y, radius: 50 });
+            // Check all exits from this room
+            for (const [direction, destinationId] of Object.entries(room.exits)) {
+                if (positioned.has(destinationId)) continue;
+                
+                const offset = directionOffsets[direction] || { x: 0, y: 0, levelChange: 0 };
+                
+                // Calculate new level
+                const newLevel = level + offset.levelChange;
+                
+                // Calculate base Y position for this level
+                const levelY = centerY + (newLevel * levelHeight);
+                
+                // Calculate new position
+                // For up/down, keep same X but move to different level
+                // For cardinal directions, offset from current position
+                let newX, newY;
+                if (offset.levelChange !== 0) {
+                    // Vertical movement: keep X close to parent, just shift to new level
+                    newX = x;
+                    newY = levelY;
+                } else {
+                    // Cardinal movement: offset from current position
+                    newX = x + offset.x;
+                    newY = y + offset.y;
+                }
+                
+                const destRoom = this.graph.getRoom(destinationId);
+                if (destRoom) {
+                    positions.set(destinationId, { x: newX, y: newY, radius: nodeRadius, level: newLevel });
+                    roomLevels.set(destinationId, newLevel);
+                    positioned.add(destinationId);
+                    queue.push({ room: destRoom, x: newX, y: newY, level: newLevel });
+                }
+            }
+        }
+        
+        // Handle any unconnected rooms (like roof, basement before unlocking)
+        // Position them based on their logical connections even if not in exits yet
+        rooms.forEach((room, index) => {
+            if (!positioned.has(room.id)) {
+                let x, y, level;
+                
+                // Special positioning for known conditional rooms
+                if (room.id === 'roof') {
+                    // Position roof above lobby, slightly offset to avoid overlap
+                    const lobbyPos = positions.get('lobby');
+                    if (lobbyPos) {
+                        x = lobbyPos.x + gridSize * 0.4; // Offset to the right
+                        y = centerY - levelHeight;
+                        level = -1;
+                    } else {
+                        x = centerX;
+                        y = centerY - levelHeight;
+                        level = -1;
+                    }
+                } else if (room.id === 'basement') {
+                    // Position basement below claims, slightly offset to avoid overlap
+                    const claimsPos = positions.get('claims');
+                    if (claimsPos) {
+                        x = claimsPos.x - gridSize * 0.4; // Offset to the left
+                        y = centerY + levelHeight;
+                        level = 1;
+                    } else {
+                        x = centerX + gridSize;
+                        y = centerY + levelHeight;
+                        level = 1;
+                    }
+                } else if (room.id === 'freedom') {
+                    // Position freedom room off to the side (special win state)
+                    x = centerX + gridSize * 3;
+                    y = centerY - levelHeight;
+                    level = -1;
+                } else {
+                    // Place other unconnected rooms in a row at the right side
+                    x = centerX + gridSize * 3;
+                    y = centerY + (index - rooms.length / 2) * gridSize * 0.5;
+                    level = 0;
+                }
+                
+                positions.set(room.id, { x, y, radius: nodeRadius, level });
+                roomLevels.set(room.id, level);
+            }
         });
+        
+        this.nodePositions = positions;
+        this.roomLevels = roomLevels;
     }
 
     /**
@@ -202,14 +312,39 @@ class DebugView {
         const ctx = this.ctx;
         const graphData = this.graph.getGraphData();
 
+        // Track connections we've already drawn to avoid duplicates
+        const drawnConnections = new Set();
+
         ctx.lineWidth = 3;
         ctx.font = '14px Arial';
+
+        // Helper to get opposite direction
+        const oppositeDirection = {
+            'north': 'south',
+            'south': 'north',
+            'east': 'west',
+            'west': 'east',
+            'up': 'down',
+            'down': 'up'
+        };
 
         for (const edge of graphData.edges) {
             const fromPos = this.nodePositions.get(edge.from);
             const toPos = this.nodePositions.get(edge.to);
 
             if (!fromPos || !toPos) continue;
+
+            // Create a unique key for this connection (bidirectional)
+            const connectionKey = [edge.from, edge.to].sort().join('|');
+            
+            // Skip if we've already drawn this connection
+            if (drawnConnections.has(connectionKey)) continue;
+            drawnConnections.add(connectionKey);
+
+            // Check if there's a reverse connection
+            const reverseEdge = graphData.edges.find(
+                e => e.from === edge.to && e.to === edge.from
+            );
 
             // Calculate arrow positions
             const dx = toPos.x - fromPos.x;
@@ -222,16 +357,23 @@ class DebugView {
             const endX = toPos.x - Math.cos(angle) * toPos.radius;
             const endY = toPos.y - Math.sin(angle) * toPos.radius;
 
+            // Different colors for up/down connections
+            const isVerticalMovement = edge.label === 'up' || edge.label === 'down';
+            const connectionColor = isVerticalMovement ? '#ff9900' : '#0066cc';
+            const lineStyle = isVerticalMovement ? [10, 5] : []; // Dashed for up/down
+
             // Draw line
-            ctx.strokeStyle = '#0066cc';
+            ctx.strokeStyle = connectionColor;
+            ctx.setLineDash(lineStyle);
             ctx.beginPath();
             ctx.moveTo(startX, startY);
             ctx.lineTo(endX, endY);
             ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
 
-            // Draw arrow head
-            const arrowSize = 15;
-            ctx.fillStyle = '#0066cc';
+            // Draw arrow head at end
+            const arrowSize = 12;
+            ctx.fillStyle = connectionColor;
             ctx.beginPath();
             ctx.moveTo(endX, endY);
             ctx.lineTo(
@@ -245,17 +387,45 @@ class DebugView {
             ctx.closePath();
             ctx.fill();
 
-            // Draw label
+            // Draw arrow head at start (reverse direction) if bidirectional
+            if (reverseEdge) {
+                ctx.fillStyle = connectionColor;
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(
+                    startX + arrowSize * Math.cos(angle - Math.PI / 6),
+                    startY + arrowSize * Math.sin(angle - Math.PI / 6)
+                );
+                ctx.lineTo(
+                    startX + arrowSize * Math.cos(angle + Math.PI / 6),
+                    startY + arrowSize * Math.sin(angle + Math.PI / 6)
+                );
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Create label showing both directions
+            let label = edge.label;
+            if (reverseEdge) {
+                const oppositeDir = oppositeDirection[edge.label] || reverseEdge.label;
+                label = `${oppositeDir}/${edge.label}`;
+            }
+
+            // Draw label with background
             const midX = (startX + endX) / 2;
             const midY = (startY + endY) / 2;
             
-            ctx.fillStyle = '#1e1e1e';
-            ctx.fillRect(midX - 25, midY - 10, 50, 20);
+            // Measure text to create proper background
+            ctx.font = 'bold 12px Arial';
+            const textWidth = ctx.measureText(label).width;
             
-            ctx.fillStyle = '#4fc3f7';
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(midX - textWidth/2 - 5, midY - 10, textWidth + 10, 20);
+            
+            ctx.fillStyle = isVerticalMovement ? '#ff9900' : '#4fc3f7';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(edge.label, midX, midY);
+            ctx.fillText(label, midX, midY);
         }
     }
 
@@ -266,12 +436,48 @@ class DebugView {
         const ctx = this.ctx;
         const rooms = this.graph.getAllRooms();
 
+        // Group rooms by level for drawing level indicators
+        const levelGroups = new Map();
+        for (const room of rooms) {
+            const pos = this.nodePositions.get(room.id);
+            if (!pos) continue;
+            
+            if (!levelGroups.has(pos.level)) {
+                levelGroups.set(pos.level, []);
+            }
+            levelGroups.get(pos.level).push({ room, pos });
+        }
+
+        // Draw level indicators
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'left';
+        for (const [level, items] of levelGroups.entries()) {
+            if (items.length > 0) {
+                const y = items[0].pos.y;
+                let levelName = 'Ground Floor';
+                if (level > 0) levelName = `Basement ${level}`;
+                if (level < 0) levelName = `Floor ${Math.abs(level)}`;
+                
+                ctx.fillText(levelName, 20, y);
+            }
+        }
+
+        // Draw nodes
         for (const room of rooms) {
             const pos = this.nodePositions.get(room.id);
             if (!pos) continue;
 
             const isStart = room.id === this.graph.startRoomId;
             const isHovered = this.hoveredNode === room.id;
+
+            // Color based on level
+            let baseColor = '#0066cc';
+            if (pos.level < 0) {
+                baseColor = '#9c27b0'; // Purple for upper levels
+            } else if (pos.level > 0) {
+                baseColor = '#f44336'; // Red for basement levels
+            }
 
             // Draw node circle
             ctx.beginPath();
@@ -282,7 +488,7 @@ class DebugView {
             } else if (isHovered) {
                 ctx.fillStyle = '#4fc3f7';
             } else {
-                ctx.fillStyle = '#0066cc';
+                ctx.fillStyle = baseColor;
             }
             ctx.fill();
             

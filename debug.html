@@ -26,11 +26,20 @@
             <div id="roomList" class="room-list"></div>
         </div>
         
-        <div class="tab-content hidden" id="canvasTab">
+        <div class="tab-content" id="canvasTab">
             <h2>Interactive Graph View</h2>
+            <div class="legend">
+                <span class="legend-item"><span class="legend-color cardinal"></span> Cardinal Directions (N/S/E/W)</span>
+                <span class="legend-item"><span class="legend-color vertical"></span> Vertical Movement (Up/Down) - Dashed</span>
+                <span class="legend-item"><span class="legend-node blue"></span> Ground Floor</span>
+                <span class="legend-item"><span class="legend-node purple"></span> Upper Floors</span>
+                <span class="legend-item"><span class="legend-node red"></span> Basement</span>
+                <span class="legend-item"><span class="legend-star">★</span> Starting Room</span>
+            </div>
             <canvas id="graphCanvas" width="1200" height="800"></canvas>
             <div class="canvas-controls">
                 <p>Click and drag to pan • Scroll to zoom • Hover over nodes for details</p>
+                <p>Rooms are positioned based on their actual cardinal directions!</p>
             </div>
         </div>
     </div>

@@ -183,3 +183,69 @@ header h1 {
     color: #888;
     font-style: italic;
 }
+
+.legend {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #1e1e1e;
+    border-radius: 5px;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #d4d4d4;
+    font-size: 0.9em;
+}
+
+.legend-color {
+    width: 30px;
+    height: 3px;
+    display: inline-block;
+    border-radius: 2px;
+}
+
+.legend-color.cardinal {
+    background: #0066cc;
+}
+
+.legend-color.vertical {
+    background: #ff9900;
+    background-image: repeating-linear-gradient(
+        90deg,
+        #ff9900,
+        #ff9900 10px,
+        transparent 10px,
+        transparent 15px
+    );
+}
+
+.legend-star {
+    color: #ffd700;
+    font-size: 1.2em;
+}
+
+.legend-node {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 2px solid #fff;
+}
+
+.legend-node.blue {
+    background: #0066cc;
+}
+
+.legend-node.purple {
+    background: #9c27b0;
+}
+
+.legend-node.red {
+    background: #f44336;
+}
