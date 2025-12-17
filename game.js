@@ -28,7 +28,10 @@ class Game {
             basementUnlocked: false,
             powerRestored: false,
             fireExtinguished: false,
-            executiveUnlocked: false
+            executiveUnlocked: false,
+            labUnlocked: false,
+            mechanicalFixed: false,
+            storageOpened: false
         };
     }
 
@@ -86,31 +89,55 @@ class Game {
      */
     startHealthTick() {
         setInterval(() => {
-            if (!this.isDead && this.currentRoom.isDangerous) {
-                // Check for gas mask protection in toxic rooms
-                const hasGasMask = this.inventory.some(item => item.id === 'gasmask');
-                const isToxicRoom = this.currentRoom.id === 'claims' && !this.gameState.powerRestored;
+            if (this.isDead || this.hasWon) return;
+            
+            if (this.currentRoom.isDangerous) {
+                let damage = 5; // Default damage
+                let isProtected = false;
                 
-                if (!(isToxicRoom && hasGasMask)) {
-                    this.modifyHealth(-5);
+                // Check for protection items
+                const hasGasMask = this.inventory.some(item => item.id === 'gasmask');
+                const hasHazmat = this.inventory.some(item => item.id === 'hazmat-suit');
+                
+                // Gas mask protects from toxic rooms
+                const isToxicRoom = this.currentRoom.id === 'claims' && !this.gameState.powerRestored;
+                if (isToxicRoom && hasGasMask) {
+                    isProtected = true;
+                }
+                
+                // Hazmat suit protects from research lab
+                const isBiohazard = this.currentRoom.id === 'research-lab';
+                if (isBiohazard && hasHazmat) {
+                    isProtected = true;
+                }
+                
+                // Sub-basement does MASSIVE damage
+                if (this.currentRoom.id === 'subbasement') {
+                    damage = 10; // Double damage!
+                }
+                
+                if (!isProtected) {
+                    this.modifyHealth(-damage);
                     if (this.health > 0) {
                         this.addOutput(`⚠️ ${this.currentRoom.dangerMessage}`, "danger");
                     }
                 }
             }
-            // Energy drain in archive room
-            if (!this.isDead && this.currentRoom.id === 'archive') {
+            
+            // Energy drain in maze-like areas
+            if (this.currentRoom.id === 'archive' || this.currentRoom.id === 'tunnel') {
                 this.modifyEnergy(-2);
                 if (this.energy > 0 && this.energy <= 20) {
-                    this.addOutput("🌀 The disorienting maze drains your energy...", "danger");
+                    this.addOutput("🌀 The disorienting space drains your energy...", "danger");
                 }
                 if (this.energy <= 0) {
-                    this.addOutput("You collapse from exhaustion in the maze!", "error");
+                    this.addOutput("You collapse from exhaustion!", "error");
                     this.modifyHealth(-15);
                 }
             }
+            
             // Natural energy recovery (slower)
-            if (!this.isDead && this.energy < this.maxEnergy) {
+            if (this.energy < this.maxEnergy) {
                 this.energy = Math.min(this.maxEnergy, this.energy + 1);
                 this.updateStats();
             }
@@ -122,7 +149,7 @@ class Game {
      */
     displayWelcome() {
         this.addOutput("═".repeat(70), "normal");
-        this.addOutput("� PROGRESSIVE INSURANCE: NIGHT SHIFT �", "room-title");
+        this.addOutput("🌑 PROGRESSIVE INSURANCE: NIGHT SHIFT 🌑", "room-title");
         this.addOutput("A Dark Survival Text Adventure", "normal");
         this.addOutput("═".repeat(70), "normal");
         this.addOutput("");
@@ -133,8 +160,9 @@ class Game {
             "normal"
         );
         this.addOutput("");
-        this.addOutput("💡 New Commands: take [item], drop [item], inventory, use [item], examine [item]", "exits");
+        this.addOutput("💡 Commands: take [item], drop [item], inventory, use [item], examine [item]", "exits");
         this.addOutput("📊 Watch your health and energy bars at the top!", "exits");
+        this.addOutput("💡 Type 'help' for full command list", "exits");
         this.addOutput("");
     }
 
@@ -151,41 +179,7 @@ class Game {
         this.addOutput(`📍 ${room.title}`, "room-title");
         
         // Dynamic room descriptions based on game state
-        let description = room.description;
-        
-        // Update Claims description if basement is unlocked
-        if (room.id === 'claims' && this.gameState.basementUnlocked) {
-            description = description.replace(
-                "A heavy metal door marked 'BASEMENT - ELECTRICAL' is locked tight. You'll need a key.",
-                "The basement door stands open, revealing a dark stairway leading DOWN."
-            );
-        }
-        
-        // Update Claims description if power is restored (air cleared)
-        if (room.id === 'claims' && this.gameState.powerRestored) {
-            description = "The Claims Department is now well-ventilated. The toxic fumes have cleared thanks to " +
-                "the restored ventilation system. Papers are still scattered everywhere from the earlier chaos. " +
-                "The basement door stands open, revealing a stairway leading DOWN.";
-        }
-        
-        // Update Lobby description if power is restored
-        if (room.id === 'lobby' && this.gameState.powerRestored) {
-            description = "The lobby is now illuminated by overhead lights! The shadows have retreated. " +
-                "Everything looks much less ominous now. The elevator hums quietly - it's operational. " +
-                "A lit button shows you can go UP to the roof.";
-        }
-        
-        // Update Basement description if power is restored
-        if (room.id === 'basement' && this.gameState.powerRestored) {
-            description = "The basement electrical room is now safe. The water has drained away and the exposed " +
-                "wires are no longer sparking. The breaker panel shows all systems green. You did it!";
-        }
-        
-        // Update Data Center description if fire is out
-        if (room.id === 'datacenter' && this.gameState.fireExtinguished) {
-            description = "The Data Center is now safe. The fire suppressant foam covers the floor and equipment. " +
-                "The servers are damaged but the fire is out. You can breathe easier now.";
-        }
+        let description = this.getDynamicDescription(room);
         
         this.addOutput(description, "room-description");
         
@@ -195,14 +189,97 @@ class Game {
         
         this.addOutput("");
         
-        // Show exits with conditionals
-        this.addOutput(room.getExitsStringWithConditionals(this.gameState), "exits");
+        // Show exits
+        this.addOutput(this.getExitsString(room), "exits");
         
         // Show special actions available
         this.showAvailableActions(room);
         
-        // Drain energy from moving
-        this.modifyEnergy(-2);
+        // Drain energy from moving (but not on first turn)
+        if (this.turns > 1) {
+            this.modifyEnergy(-2);
+        }
+    }
+
+    /**
+     * Get dynamic description based on game state
+     */
+    getDynamicDescription(room) {
+        let description = room.description;
+        
+        // Update Claims description
+        if (room.id === 'claims') {
+            if (this.gameState.powerRestored) {
+                description = "The Claims Department is now well-ventilated. The toxic fumes have cleared thanks to " +
+                    "the restored ventilation system. Papers are still scattered everywhere from the earlier chaos. " +
+                    "The basement door stands open, revealing a stairway leading DOWN.";
+            } else if (this.gameState.basementUnlocked) {
+                description = room.description.replace(
+                    "A heavy metal door marked 'BASEMENT - ELECTRICAL' is locked tight.",
+                    "The basement door stands open, revealing a dark stairway leading DOWN."
+                );
+            }
+        }
+        
+        // Update Lobby description
+        if (room.id === 'lobby' && this.gameState.powerRestored) {
+            description = "The lobby is now illuminated by overhead lights! The shadows have retreated. " +
+                "Everything looks much less ominous now. The elevator hums quietly - it's operational. " +
+                "A lit button shows you can go UP to the roof.";
+        }
+        
+        // Update Basement description
+        if (room.id === 'basement' && this.gameState.powerRestored) {
+            description = "The basement electrical room is now safe. The water has drained away and the exposed " +
+                "wires are no longer sparking. The breaker panel shows all systems green. You did it!";
+        }
+        
+        // Update Data Center description
+        if (room.id === 'datacenter' && this.gameState.fireExtinguished) {
+            description = "The Data Center is now safe. The fire suppressant foam covers the floor and equipment. " +
+                "The servers are damaged but the fire is out. You can breathe easier now.";
+        }
+        
+        // Update Mechanical Room
+        if (room.id === 'mechanical' && this.gameState.mechanicalFixed) {
+            description = "The Mechanical Room is now safe. The steam valve is shut off and the pressure has normalized. " +
+                "The machinery hums quietly. You fixed it!";
+        }
+        
+        // Update Storage
+        if (room.id === 'storage' && this.gameState.storageOpened) {
+            description = "The storage room is slightly less cluttered now. The locked cabinet stands open, " +
+                "its contents revealed. You found some useful gear.";
+        }
+        
+        return description;
+    }
+
+    /**
+     * Get exits string including conditional exits
+     */
+    getExitsString(room) {
+        const directions = room.getAvailableDirections();
+        const allDirections = [...directions];
+        
+        // Add conditional exits that exist in game state
+        if (room.id === 'claims' && this.gameState.basementUnlocked && !allDirections.includes('down')) {
+            allDirections.push('down');
+        }
+        if (room.id === 'lobby' && this.gameState.powerRestored && !allDirections.includes('up')) {
+            allDirections.push('up');
+        }
+        if (room.id === 'executive-hall' && this.gameState.executiveUnlocked && !allDirections.includes('north')) {
+            allDirections.push('north');
+        }
+        if (room.id === 'lab-hall' && this.gameState.labUnlocked && !allDirections.includes('east')) {
+            allDirections.push('east');
+        }
+        
+        if (allDirections.length === 0) {
+            return "No obvious exits.";
+        }
+        return `Exits: ${allDirections.join(', ')}`;
     }
 
     /**
@@ -237,8 +314,47 @@ class Game {
             }
         }
         
-        if (room.id === 'archive') {
-            actions.push("⚠️ This maze drains your energy faster. Don't stay too long!");
+        if (room.id === 'mechanical') {
+            const hasWrench = this.inventory.some(item => item.id === 'wrench');
+            if (hasWrench && room.isDangerous) {
+                actions.push("🔧 You can USE the wrench here to fix the steam valve");
+            }
+        }
+        
+        if (room.id === 'storage') {
+            const hasCrowbar = this.inventory.some(item => item.id === 'crowbar');
+            if (hasCrowbar && !this.gameState.storageOpened) {
+                actions.push("💪 You can USE the crowbar here to pry open the locked cabinet");
+            }
+        }
+        
+        if (room.id === 'executive-hall') {
+            const hasAccessCard = this.inventory.some(item => item.id === 'access-card');
+            if (hasAccessCard && !this.gameState.executiveUnlocked) {
+                actions.push("🔓 You can USE the access-card here to unlock the boardroom");
+            }
+        }
+        
+        if (room.id === 'lab-hall') {
+            const hasLabKey = this.inventory.some(item => item.id === 'lab-key');
+            if (hasLabKey && !this.gameState.labUnlocked) {
+                actions.push("🔬 You can USE the lab-key here to access the research lab");
+            }
+        }
+        
+        if (room.id === 'research-lab') {
+            const hasHazmat = this.inventory.some(item => item.id === 'hazmat-suit');
+            if (room.isDangerous && hasHazmat) {
+                actions.push("🛡️ Your hazmat suit will protect you from the biohazard");
+            }
+        }
+        
+        if (room.id === 'archive' || room.id === 'tunnel') {
+            actions.push("⚠️ This area drains your energy faster. Don't stay too long!");
+        }
+        
+        if (room.id === 'subbasement') {
+            actions.push("☠️ EXTREME DANGER! This area deals massive damage. Get what you need and leave!");
         }
         
         if (room.id === 'roof') {
@@ -263,7 +379,7 @@ class Game {
         this.addOutput(`> ${command}`, "command");
 
         // Movement
-        const directionMap = { 'n': 'north', 's': 'south', 'e': 'east', 'w': 'west' };
+        const directionMap = { 'n': 'north', 's': 'south', 'e': 'east', 'w': 'west', 'u': 'up', 'd': 'down' };
         const direction = directionMap[action] || action;
         
         if (['north', 'south', 'east', 'west', 'up', 'down'].includes(direction)) {
@@ -322,7 +438,7 @@ class Game {
                 break;
 
             case 'exits':
-                this.addOutput(this.currentRoom.getExitsStringWithConditionals(this.gameState), "exits");
+                this.addOutput(this.getExitsString(this.currentRoom), "exits");
                 break;
 
             default:
@@ -350,9 +466,19 @@ class Game {
                 this.addOutput("The elevator has no power. You need to restore electricity first.", "error");
                 return;
             }
-            // Dynamically add the exit if power is restored
-            if (!this.currentRoom.hasExit('up')) {
-                this.currentRoom.addExit('up', 'roof');
+        }
+
+        if (direction === 'north' && this.currentRoom.id === 'executive-hall') {
+            if (!this.gameState.executiveUnlocked) {
+                this.addOutput("The boardroom door is locked. You need an executive access card.", "error");
+                return;
+            }
+        }
+
+        if (direction === 'east' && this.currentRoom.id === 'lab-hall') {
+            if (!this.gameState.labUnlocked) {
+                this.addOutput("The research lab is sealed. You need a lab key.", "error");
+                return;
             }
         }
         
@@ -537,7 +663,7 @@ class Game {
         this.energy = Math.max(0, Math.min(this.maxEnergy, this.energy + amount));
         this.updateStats();
         
-        if (this.energy <= 0) {
+        if (this.energy <= 0 && amount < 0) {
             this.addOutput("⚡ You're exhausted! Rest to recover energy.", "warning");
         }
     }
@@ -584,13 +710,14 @@ class Game {
         this.addOutput("");
         this.addOutput("📋 COMMANDS", "room-title");
         this.addOutput("");
-        this.addOutput("Movement: north (n), south (s), east (e), west (w), up, down", "normal");
+        this.addOutput("Movement: north (n), south (s), east (e), west (w), up (u), down (d)", "normal");
         this.addOutput("Items: take [item], drop [item], use [item], examine [item]", "normal");
         this.addOutput("Info: inventory (i), look (l), stats, exits, help (h)", "normal");
         this.addOutput("Special: escape (when on roof)", "normal");
         this.addOutput("");
         this.addOutput("💡 Tip: Use the basement-key at Claims to unlock the basement.", "exits");
         this.addOutput("💡 Tip: Use the fuse in the basement to restore power.", "exits");
+        this.addOutput("💡 Tip: Examine items to learn more about them.", "exits");
         this.addOutput("");
     }
 
@@ -608,6 +735,8 @@ class Game {
         this.addOutput("🔧 PROGRESS", "room-title");
         this.addOutput(`Basement Unlocked: ${this.gameState.basementUnlocked ? '✅ Yes' : '❌ No'}`, "normal");
         this.addOutput(`Power Restored: ${this.gameState.powerRestored ? '✅ Yes' : '❌ No'}`, "normal");
+        this.addOutput(`Fire Extinguished: ${this.gameState.fireExtinguished ? '✅ Yes' : '❌ No'}`, "normal");
+        this.addOutput(`Executive Access: ${this.gameState.executiveUnlocked ? '✅ Yes' : '❌ No'}`, "normal");
         this.addOutput("");
     }
 

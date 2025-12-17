@@ -16,6 +16,18 @@ class DebugView {
         this.dragStartY = 0;
         this.hoveredNode = null;
         this.nodePositions = new Map();
+        
+        // Resize canvas to proper dimensions
+        this.resizeCanvas();
+    }
+
+    /**
+     * Resize canvas to fit container
+     */
+    resizeCanvas() {
+        const container = this.canvas.parentElement;
+        this.canvas.width = container.clientWidth || 1200;
+        this.canvas.height = 800;
     }
 
     /**
@@ -53,6 +65,15 @@ class DebugView {
         this.canvas.addEventListener('mouseup', () => this.handleMouseUp());
         this.canvas.addEventListener('mouseleave', () => this.handleMouseUp());
         this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+
+        // Window resize
+        window.addEventListener('resize', () => {
+            if (!document.getElementById('canvasTab').classList.contains('hidden')) {
+                this.resizeCanvas();
+                this.calculateNodePositions();
+                this.renderCanvas();
+            }
+        });
     }
 
     /**
@@ -76,9 +97,12 @@ class DebugView {
             document.getElementById('asciiTab').classList.remove('hidden');
         } else if (tabName === 'canvas') {
             document.getElementById('canvasTab').classList.remove('hidden');
+            this.resizeCanvas();
+            this.calculateNodePositions();
             this.renderCanvas();
         } else if (tabName === '3d') {
             document.getElementById('3dTab').classList.remove('hidden');
+            // Only create 3D view once
             if (!window.debugView3D) {
                 window.debugView3D = new DebugView3D(this.graph);
                 window.debugView3D.init();

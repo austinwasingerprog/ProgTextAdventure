@@ -18,8 +18,6 @@ class Room {
         this.visited = false;
         this.isDangerous = false; // Drains health over time
         this.dangerMessage = "";
-        this.isLocked = false;
-        this.requiredItem = null; // Item needed to unlock
     }
 
     /**
@@ -86,19 +84,6 @@ class Room {
     }
 
     /**
-     * Lock an exit requiring an item
-     * @param {string} direction - Direction to lock
-     * @param {string} requiredItemId - Item needed to unlock
-     * @returns {Room} - Returns this for method chaining
-     */
-    lockExit(direction, requiredItemId) {
-        this.isLocked = true;
-        this.exits[direction].locked = true;
-        this.exits[direction].requiredItem = requiredItemId;
-        return this;
-    }
-
-    /**
      * Get the destination room ID for a given direction
      * @param {string} direction - Direction to check
      * @returns {string|null} - Destination room ID or null if no exit
@@ -134,31 +119,6 @@ class Room {
             return "No obvious exits.";
         }
         return `Exits: ${directions.join(', ')}`;
-    }
-
-    /**
-     * Get exits string with conditional exits shown
-     * @param {object} gameState - Current game state for conditionals
-     * @returns {string} - Formatted exit string
-     */
-    getExitsStringWithConditionals(gameState) {
-        const directions = this.getAvailableDirections();
-        const conditionalExits = [];
-        
-        // Add conditional exits based on game state (only if not already in directions)
-        if (this.id === 'claims' && gameState.basementUnlocked && !directions.includes('down')) {
-            conditionalExits.push('down');
-        }
-        if (this.id === 'lobby' && gameState.powerRestored && !directions.includes('up')) {
-            conditionalExits.push('up');
-        }
-        
-        const allExits = [...directions, ...conditionalExits];
-        
-        if (allExits.length === 0) {
-            return "No obvious exits.";
-        }
-        return `Exits: ${allExits.join(', ')}`;
     }
 
     /**
@@ -199,13 +159,13 @@ class Item {
      * @param {string} id - Unique identifier for the item
      * @param {string} name - Display name of the item
      * @param {string} description - Description of the item
-     * @param {string} type - Type of item (key, consumable, tool, misc)
+     * @param {string} type - Type of item (key, consumable, tool, misc, lore)
      */
     constructor(id, name, description, type = 'misc') {
         this.id = id;
         this.name = name;
         this.description = description;
-        this.type = type; // 'key', 'consumable', 'tool', 'misc'
+        this.type = type; // 'key', 'consumable', 'tool', 'misc', 'lore'
         this.canUse = false;
         this.useEffect = null;
     }

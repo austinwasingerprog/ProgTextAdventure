@@ -175,7 +175,127 @@ function initializeGame() {
         'Executive Access Card',
         'A high-level access card. Opens restricted areas.',
         'key'
+    ).setUsable((game) => {
+        if (game.currentRoom.id === 'executive-hall' && !game.gameState.executiveUnlocked) {
+            game.gameState.executiveUnlocked = true;
+            const hallRoom = game.graph.getRoom('executive-hall');
+            if (hallRoom && !hallRoom.hasExit('north')) {
+                hallRoom.addExit('north', 'boardroom');
+            }
+            game.addOutput("🔓 The executive access card unlocks the boardroom. The heavy door slides open.", "success");
+        } else if (game.gameState.executiveUnlocked) {
+            game.addOutput("The boardroom is already unlocked.", "normal");
+        } else {
+            game.addOutput("There's nothing to unlock here. Try using this at the executive hallway.", "error");
+        }
+    });
+
+    const hazmat = new Item(
+        'hazmat-suit',
+        'Hazmat Suit',
+        'A full-body hazmat suit. Maximum protection from hazardous environments.',
+        'tool'
     );
+
+    const wrench = new Item(
+        'wrench',
+        'Pipe Wrench',
+        'A heavy pipe wrench. Could be used to fix pipes... or as a weapon.',
+        'tool'
+    ).setUsable((game) => {
+        if (game.currentRoom.id === 'mechanical' && game.currentRoom.isDangerous) {
+            game.addOutput("🔧 You use the wrench to shut off the damaged steam valve!", "success");
+            game.addOutput("The hissing stops. The mechanical room is now safe.", "success");
+            game.currentRoom.isDangerous = false;
+            game.currentRoom.dangerMessage = "";
+            game.gameState.mechanicalFixed = true;
+            
+            const index = game.inventory.findIndex(item => item.id === 'wrench');
+            game.inventory.splice(index, 1);
+        } else {
+            game.addOutput("There's nothing to fix here.", "error");
+        }
+    });
+
+    const sedative = new Item(
+        'sedative',
+        'Sedative Injection',
+        'A medical sedative. Calms you down but drains energy.',
+        'consumable'
+    ).setUsable((game) => {
+        game.modifyHealth(15);
+        game.modifyEnergy(-30);
+        const index = game.inventory.findIndex(item => item.id === 'sedative');
+        game.inventory.splice(index, 1);
+        game.addOutput("You inject the sedative. Your pain eases but you feel drowsy.", "success");
+    });
+
+    const adrenaline = new Item(
+        'adrenaline',
+        'Adrenaline Shot',
+        'Emergency adrenaline. Massive energy boost but damages health.',
+        'consumable'
+    ).setUsable((game) => {
+        game.modifyEnergy(60);
+        game.modifyHealth(-10);
+        const index = game.inventory.findIndex(item => item.id === 'adrenaline');
+        game.inventory.splice(index, 1);
+        game.addOutput("You inject the adrenaline! Your heart races. You feel unstoppable!", "success");
+    });
+
+    const labkey = new Item(
+        'lab-key',
+        'Research Lab Key',
+        'A keycard for the research lab. What were they researching here?',
+        'key'
+    ).setUsable((game) => {
+        if (game.currentRoom.id === 'lab-hall' && !game.gameState.labUnlocked) {
+            game.gameState.labUnlocked = true;
+            const labHallRoom = game.graph.getRoom('lab-hall');
+            if (labHallRoom && !labHallRoom.hasExit('east')) {
+                labHallRoom.addExit('east', 'research-lab');
+            }
+            game.addOutput("🔬 The lab key opens the research lab. Warning lights flash inside.", "success");
+        } else if (game.gameState.labUnlocked) {
+            game.addOutput("The research lab is already open.", "normal");
+        } else {
+            game.addOutput("There's nothing to unlock here. Try this at the lab hallway.", "error");
+        }
+    });
+
+    const roofkey = new Item(
+        'roof-key',
+        'Roof Access Key',
+        'A key for roof access. Your ticket to freedom... maybe.',
+        'key'
+    );
+
+    const document = new Item(
+        'documents',
+        'Classified Documents',
+        'Heavily redacted documents about "Project Midnight". What is this?',
+        'lore'
+    );
+
+    const crowbar = new Item(
+        'crowbar',
+        'Crowbar',
+        'A sturdy crowbar. Good for prying things open.',
+        'tool'
+    ).setUsable((game) => {
+        if (game.currentRoom.id === 'storage' && !game.gameState.storageOpened) {
+            game.gameState.storageOpened = true;
+            game.addOutput("💪 You pry open the locked storage cabinet!", "success");
+            game.addOutput("Inside you find... something useful.", "success");
+            const storageRoom = game.graph.getRoom('storage');
+            if (storageRoom) {
+                storageRoom.addItem(hazmat);
+                storageRoom.addItem(adrenaline);
+            }
+        } else {
+            game.addOutput("There's nothing to pry open here.", "error");
+        }
+    });
 
     // Create all rooms with dark survival theme
     
@@ -283,7 +403,108 @@ function initializeGame() {
         "Stay too long and the heat exhaustion will get you."
     );
     mechanical.setDangerous("💨 Steam vents scald you! The heat is unbearable!");
-    mechanical.addItem(painkiller);
+    mechanical.addItem(wrench);
+
+    // Room 11: Storage Room - Safe, puzzle room
+    const storage = new Room(
+        "storage",
+        "Storage Room",
+        "A cluttered storage room filled with old equipment and supplies. Metal shelving units " +
+        "line the walls. A locked cabinet in the corner looks promising. You'll need something to pry it open."
+    );
+    storage.addItem(crowbar);
+    storage.addItem(painkiller);
+
+    // Room 12: Executive Hallway - Safe
+    const executiveHall = new Room(
+        "executive-hall",
+        "Executive Hallway",
+        "A luxurious hallway with dark wood paneling and expensive artwork. The doors are locked " +
+        "except for one office. A biometric scanner guards the boardroom entrance to the north - " +
+        "you'll need the right access card."
+    );
+
+    // Room 13: Boardroom - Safe, important items (locked initially)
+    const boardroom = new Room(
+        "boardroom",
+        "Executive Boardroom",
+        "An enormous conference room with a massive table. Floor-to-ceiling windows show the dark city. " +
+        "Someone left in a hurry - papers are scattered, chairs overturned. A safe stands open."
+    );
+    boardroom.addItem(document);
+    boardroom.addItem(roofkey);
+    boardroom.addItem(adrenaline);
+
+    // Room 14: IT Office - Safe, tech items
+    const itoffice = new Room(
+        "it-office",
+        "IT Department",
+        "Cubicles filled with computer equipment. Multiple monitors glow dimly on battery backup. " +
+        "The IT staff left tools and equipment everywhere. You might find something useful."
+    );
+    itoffice.addItem(batteries);
+    itoffice.addItem(energydrink);
+
+    // Room 15: Lab Hallway - Safe but eerie
+    const labHall = new Room(
+        "lab-hall",
+        "Research Lab Hallway",
+        "A sterile white hallway. Warning signs are posted everywhere: 'BIOHAZARD', 'AUTHORIZED PERSONNEL ONLY'. " +
+        "The research lab door is sealed. You need the right key to access it."
+    );
+    labHall.addItem(labkey);
+
+    // Room 16: Research Lab - DANGEROUS (toxic/biohazard) (locked initially)
+    const researchLab = new Room(
+        "research-lab",
+        "Research Lab - BIOHAZARD",
+        "WARNING! Chemical spills everywhere. Broken containment units. Whatever they were researching " +
+        "has been released. The air is thick with an unidentifiable mist. Extremely dangerous!"
+    );
+    researchLab.setDangerous("☣️ Toxic chemicals are burning your skin and lungs!");
+    researchLab.addItem(hazmat);
+    researchLab.addItem(sedative);
+
+    // Room 17: Cafeteria - Safe, lots of consumables
+    const cafeteria = new Room(
+        "cafeteria",
+        "Employee Cafeteria",
+        "A large cafeteria with dozens of tables. The kitchen door is ajar. Food is still on some tables - " +
+        "whatever happened, it happened fast. The vending machines are accessible."
+    );
+    cafeteria.addItem(energydrink);
+    cafeteria.addItem(coffee);
+    cafeteria.addItem(firstaid);
+
+    // Room 18: Parking Garage - Dark and creepy
+    const garage = new Room(
+        "garage",
+        "Underground Parking Garage",
+        "A dark concrete parking garage. Most of the cars are gone. The few that remain are abandoned. " +
+        "Fluorescent lights flicker overhead. Oil stains and tire marks everywhere. The exit ramp is blocked."
+    );
+    garage.addItem(crowbar);
+
+    // Room 19: Maintenance Tunnel - Energy drain area
+    const tunnel = new Room(
+        "tunnel",
+        "Maintenance Tunnel",
+        "A claustrophobic maintenance tunnel running under the building. Pipes and cables line the walls. " +
+        "Water drips constantly. It's disorienting down here - you can barely tell which way is which. " +
+        "Your energy drains faster in this oppressive space."
+    );
+    tunnel.addItem(batteries);
+
+    // Room 20: Sub-basement - VERY DANGEROUS
+    const subbasement = new Room(
+        "sub-basement",
+        "Sub-Basement - Flooded",
+        "The sub-basement is severely flooded. Water is waist-deep and rising. Old machinery looms " +
+        "in the darkness. Something doesn't feel right down here. The water is ice cold and electrified. " +
+        "Get what you need and GET OUT!"
+    );
+    subbasement.setDangerous("⚡❄️ The electrified ice-cold water is deadly!");
+    subbasement.addItem(accesscard);
 
     // Basement - DANGEROUS and has power solution
     const basement = new Room(
@@ -312,22 +533,25 @@ function initializeGame() {
         "fills your lungs. You made it out alive! The nightmare is over..."
     );
 
-    // Define connections
+    // Define connections - Creating a complex multi-level structure
     security
         .addExit("north", "lobby")
         .addExit("east", "servers")
-        .addExit("south", "archive");
+        .addExit("south", "archive")
+        .addExit("west", "storage");
 
     lobby
         .addExit("south", "security")
         .addExit("east", "claims")
-        .addExit("west", "breakroom");
+        .addExit("west", "breakroom")
+        .addExit("north", "cafeteria");
         // UP exit to roof added dynamically when power is restored
 
     claims
         .addExit("west", "lobby")
         .addExit("south", "servers")
-        .addExit("north", "executive");
+        .addExit("north", "executive-hall")
+        .addExit("east", "itoffice");
         // DOWN exit to basement added dynamically when unlocked
 
     servers
@@ -341,7 +565,8 @@ function initializeGame() {
 
     breakroom
         .addExit("east", "lobby")
-        .addExit("north", "supply");
+        .addExit("north", "supply")
+        .addExit("west", "cafeteria");
 
     supply
         .addExit("south", "breakroom");
@@ -349,13 +574,54 @@ function initializeGame() {
     executive
         .addExit("south", "claims");
 
+    executiveHall
+        .addExit("south", "claims")
+        .addExit("west", "executive");
+        // NORTH exit to boardroom added dynamically when unlocked
+
+    boardroom
+        .addExit("south", "executive-hall");
+
+    itoffice
+        .addExit("west", "claims")
+        .addExit("north", "lab-hall");
+
+    labHall
+        .addExit("south", "itoffice");
+        // EAST exit to research-lab added dynamically when unlocked
+
+    researchLab
+        .addExit("west", "lab-hall");
+
+    cafeteria
+        .addExit("south", "lobby")
+        .addExit("east", "breakroom")
+        .addExit("west", "garage");
+
+    garage
+        .addExit("east", "cafeteria")
+        .addExit("down", "tunnel");
+
+    storage
+        .addExit("east", "security")
+        .addExit("south", "garage");
+
     archive
         .addExit("north", "security")
-        .addExit("east", "mechanical");
+        .addExit("east", "mechanical")
+        .addExit("down", "tunnel");
 
     mechanical
         .addExit("west", "archive")
         .addExit("north", "datacenter");
+
+    tunnel
+        .addExit("up", "garage")
+        .addExit("north", "archive")
+        .addExit("down", "subbasement");
+
+    subbasement
+        .addExit("up", "tunnel");
 
     basement
         .addExit("up", "claims");
@@ -374,8 +640,18 @@ function initializeGame() {
         .addRoom(breakroom)
         .addRoom(supply)
         .addRoom(executive)
+        .addRoom(executiveHall)
+        .addRoom(boardroom)
+        .addRoom(itoffice)
+        .addRoom(labHall)
+        .addRoom(researchLab)
+        .addRoom(cafeteria)
+        .addRoom(garage)
+        .addRoom(storage)
         .addRoom(archive)
         .addRoom(mechanical)
+        .addRoom(tunnel)
+        .addRoom(subbasement)
         .addRoom(basement)
         .addRoom(roof)
         .addRoom(freedom)
