@@ -470,6 +470,11 @@ class Game {
                 this.addOutput(exitsInfo.text, "exits", exitsInfo.useHTML);
                 break;
 
+            case 'map':
+            case 'm':
+                this.displayMap();
+                break;
+
             case 'tips':
                 this.toggleTips();
                 break;
@@ -750,9 +755,9 @@ class Game {
         this.addOutput("🔧 You carefully remove the fuse from the breaker panel...", "normal");
         this.addOutput("", "normal");
         this.addOutput("CLUNK! The building goes dark again. Emergency lights flicker on.", "normal");
-        this.addOutput("The claims area toxic fumes return as the vents shut down.", "normal");
-        this.addOutput("The cafeteria refrigeration shuts down - mold spores fill the air again!", "error");
-        this.addOutput("The sub-basement water is no longer electrified - you can safely retrieve items now!", "success");
+        this.addOutput("⚠️  The claims area toxic fumes return as the vents shut down!", "error");
+        this.addOutput("⚠️  The cafeteria refrigeration shuts down - mold spores fill the air again!", "error");
+        this.addOutput("✅ The sub-basement water is no longer electrified - you can safely retrieve items now!", "success");
         this.addOutput("", "normal");
 
         // Make claims dangerous again
@@ -868,6 +873,164 @@ class Game {
     }
 
     /**
+     * Display fog-of-war map showing only visited rooms
+     */
+    displayMap() {
+        this.addOutput("");
+        this.addOutput("🗺️  MAP - Visited Locations", "room-title");
+        this.addOutput("", "normal");
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;
+        canvas.height = 400;
+        canvas.style.display = 'block';
+        canvas.style.margin = '10px auto';
+        canvas.style.border = '2px solid #4ec9b0';
+        canvas.style.backgroundColor = '#1e1e1e';
+        
+        const ctx = canvas.getContext('2d');
+        
+        // Get all rooms and calculate positions
+        const rooms = this.graph.getAllRooms();
+        const positions = this.calculateRoomPositions(rooms);
+        
+        // Draw connections first (behind rooms)
+        ctx.strokeStyle = '#4ec9b0';
+        ctx.lineWidth = 2;
+        
+        for (const room of rooms) {
+            if (!room.visited) continue;
+            
+            const pos = positions.get(room.id);
+            if (!pos) continue;
+            
+            for (const [direction, exit] of Object.entries(room.exits)) {
+                const destRoom = this.graph.getRoom(exit.destination);
+                if (!destRoom || !destRoom.visited) continue;
+                
+                const destPos = positions.get(exit.destination);
+                if (!destPos) continue;
+                
+                // Draw connection line
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+                ctx.lineTo(destPos.x, destPos.y);
+                ctx.stroke();
+            }
+        }
+        
+        // Draw rooms
+        const roomSize = 40;
+        const halfSize = roomSize / 2;
+        
+        for (const room of rooms) {
+            if (!room.visited) continue;
+            
+            const pos = positions.get(room.id);
+            if (!pos) continue;
+            
+            // Draw room square
+            if (room.id === this.currentRoom.id) {
+                // Current room - bright highlight
+                ctx.fillStyle = '#00ff00';
+                ctx.strokeStyle = '#ffffff';
+            } else if (room.id === this.graph.startRoomId) {
+                // Start room
+                ctx.fillStyle = '#ffd700';
+                ctx.strokeStyle = '#4ec9b0';
+            } else {
+                // Visited room
+                ctx.fillStyle = '#2d2d2d';
+                ctx.strokeStyle = '#4ec9b0';
+            }
+            
+            ctx.lineWidth = 2;
+            ctx.fillRect(pos.x - halfSize, pos.y - halfSize, roomSize, roomSize);
+            ctx.strokeRect(pos.x - halfSize, pos.y - halfSize, roomSize, roomSize);
+            
+            // Draw room initial
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 14px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const initial = room.title.charAt(0).toUpperCase();
+            ctx.fillText(initial, pos.x, pos.y);
+        }
+        
+        // Add canvas to output
+        const outputLine = document.createElement('div');
+        outputLine.className = 'output-line normal';
+        outputLine.appendChild(canvas);
+        this.outputElement.appendChild(outputLine);
+        
+        // Add legend
+        this.addOutput("", "normal");
+        this.addOutput("Legend: 🟩 Current Location | 🟨 Start | ⬛ Visited", "normal");
+        this.addOutput("Tip: Only rooms you've visited are shown on the map", "exits");
+        this.addOutput("", "normal");
+        
+        this.outputElement.scrollTop = this.outputElement.scrollHeight;
+    }
+
+    /**
+     * Calculate 2D positions for rooms using BFS layout
+     */
+    calculateRoomPositions(rooms) {
+        const positions = new Map();
+        const visited = new Set();
+        const queue = [];
+        
+        // Start from the starting room
+        const startRoom = this.graph.getRoom(this.graph.startRoomId);
+        if (!startRoom) return positions;
+        
+        const centerX = 300;
+        const centerY = 200;
+        const spacing = 80;
+        
+        positions.set(startRoom.id, { x: centerX, y: centerY });
+        visited.add(startRoom.id);
+        queue.push(startRoom);
+        
+        // Direction offsets for cardinal directions
+        const directionOffsets = {
+            'north': { x: 0, y: -1 },
+            'south': { x: 0, y: 1 },
+            'east': { x: 1, y: 0 },
+            'west': { x: -1, y: 0 },
+            'up': { x: 0, y: -1.5 },
+            'down': { x: 0, y: 1.5 }
+        };
+        
+        while (queue.length > 0) {
+            const room = queue.shift();
+            const currentPos = positions.get(room.id);
+            
+            for (const [direction, exit] of Object.entries(room.exits)) {
+                const destId = exit.destination;
+                
+                if (visited.has(destId)) continue;
+                
+                const offset = directionOffsets[direction];
+                if (offset) {
+                    positions.set(destId, {
+                        x: currentPos.x + (offset.x * spacing),
+                        y: currentPos.y + (offset.y * spacing)
+                    });
+                    
+                    visited.add(destId);
+                    const destRoom = this.graph.getRoom(destId);
+                    if (destRoom) {
+                        queue.push(destRoom);
+                    }
+                }
+            }
+        }
+        
+        return positions;
+    }
+
+    /**
      * Display help information
      */
     displayHelp() {
@@ -876,7 +1039,7 @@ class Game {
         this.addOutput("");
         this.addOutput("Movement: north (n), south (s), east (e), west (w), up (u), down (d)", "normal");
         this.addOutput("Items: take [item], drop [item], use [item], examine [item]", "normal");
-        this.addOutput("Info: inventory (i), look (l), stats, exits, help (h)", "normal");
+        this.addOutput("Info: inventory (i), look (l), stats, exits, map (m), help (h)", "normal");
         this.addOutput("Settings: tips (toggle helpful hints)", "normal");
         this.addOutput("Special: escape (when on roof), remove fuse (in server room)", "normal");
         this.addOutput("");

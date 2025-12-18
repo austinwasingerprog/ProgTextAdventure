@@ -79,8 +79,8 @@ function initializeGame() {
             game.addOutput("⚡ You install the fuse into the server room breaker panel...", "success");
             game.addOutput("", "normal");
             game.addOutput("CLUNK! The breakers flip on. Lights flicker to life throughout the building!", "success");
-            game.addOutput("The contamination vents in the Claims Department activate and clear the air.", "success");
-            game.addOutput("The cafeteria refrigeration system hums to life - the air clears as ventilation starts!", "success");
+            game.addOutput("✅ The contamination vents in the Claims Department activate and clear the air.", "success");
+            game.addOutput("✅ The cafeteria refrigeration system hums to life - the air clears as ventilation starts!", "success");
             game.addOutput("Power is restored, but the lobby elevator still won't budge - it needs an access card.", "normal");
             game.addOutput("", "normal");
             game.addOutput("⚠️  WARNING: You hear a crackling sound from deep below... the sub-basement water is now ELECTRIFIED!", "error");
