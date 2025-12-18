@@ -189,7 +189,8 @@ class Game {
         this.addOutput("");
         
         // Show exits
-        this.addOutput(this.getExitsString(room), "exits");
+        const exitsInfo = this.getExitsString(room);
+        this.addOutput(exitsInfo.text, "exits", exitsInfo.useHTML);
         
         // Show special actions available
         this.showAvailableActions(room);
@@ -222,9 +223,14 @@ class Game {
         
         // Update Lobby description
         if (room.id === 'lobby' && this.gameState.powerRestored) {
-            description = "The lobby is now illuminated by overhead lights! The shadows have retreated. " +
-                "Everything looks much less ominous now. The elevator hums quietly - it's operational. " +
-                "A lit button shows you can go UP to the roof.";
+            if (this.gameState.elevatorAccess) {
+                description = "The lobby is now illuminated by overhead lights! The shadows have retreated. " +
+                    "Everything looks much less ominous now. The elevator doors stand open - ready to take you UP to the roof.";
+            } else {
+                description = "The lobby is now illuminated by overhead lights! The shadows have retreated. " +
+                    "Everything looks much less ominous now. The elevator hums with power, but the doors remain closed. " +
+                    "A card reader next to the elevator blinks red - it needs an access card.";
+            }
         }
         
         // Update Data Center description
@@ -252,12 +258,37 @@ class Game {
      * Get exits string including unlocked conditional exits
      */
     getExitsString(room) {
-        const directions = room.getAvailableDirections(this.gameState);
+        const exitStrings = [];
+        let hasLockedExits = false;
         
-        if (directions.length === 0) {
-            return "No obvious exits.";
+        // Get all exits
+        for (const [direction, exit] of Object.entries(room.exits)) {
+            // Skip the secret tunnel exit if not yet revealed
+            if (direction === 'down' && room.id === 'storage' && !this.gameState.tunnelRevealed) {
+                continue;
+            }
+            
+            // Check if this exit is locked
+            const isLocked = exit.locked && (!this.gameState[exit.unlockCondition]);
+            
+            if (isLocked) {
+                // Show locked exits with strikethrough and padlock
+                exitStrings.push(`<span style="text-decoration: line-through; opacity: 0.5;">${direction}</span> 🔒`);
+                hasLockedExits = true;
+            } else {
+                // Show unlocked exits normally
+                exitStrings.push(direction);
+            }
         }
-        return `Exits: ${directions.join(', ')}`;
+        
+        if (exitStrings.length === 0) {
+            return { text: "No obvious exits.", useHTML: false };
+        }
+        
+        return { 
+            text: `Exits: ${exitStrings.join(', ')}`,
+            useHTML: hasLockedExits
+        };
     }
 
     /**
@@ -435,7 +466,8 @@ class Game {
                 break;
 
             case 'exits':
-                this.addOutput(this.getExitsString(this.currentRoom), "exits");
+                const exitsInfo = this.getExitsString(this.currentRoom);
+                this.addOutput(exitsInfo.text, "exits", exitsInfo.useHTML);
                 break;
 
             case 'tips':
@@ -744,6 +776,56 @@ class Game {
 
         // Add fuse back to inventory
         const fuse = new Item('fuse', 'Replacement Fuse', 'A heavy electrical fuse. This could restore power... but it might also electrify flooded areas.', 'tool');
+        
+        // Re-attach the usable callback to the fuse
+        fuse.setUsable((game) => {
+            if (game.currentRoom.id === 'servers' && !game.gameState.powerRestored) {
+                game.gameState.powerRestored = true;
+                game.gameState.fuseInstalled = true;
+                game.addOutput("⚡ You install the fuse into the server room breaker panel...", "success");
+                game.addOutput("", "normal");
+                game.addOutput("CLUNK! The breakers flip on. Lights flicker to life throughout the building!", "success");
+                game.addOutput("The contamination vents in the Claims Department activate and clear the air.", "success");
+                game.addOutput("The cafeteria refrigeration system hums to life - the air clears as ventilation starts!", "success");
+                game.addOutput("Power is restored, but the lobby elevator still won't budge - it needs an access card.", "normal");
+                game.addOutput("", "normal");
+                game.addOutput("⚠️  WARNING: You hear a crackling sound from deep below... the sub-basement water is now ELECTRIFIED!", "error");
+                game.addOutput("💡 Tip: You can REMOVE the fuse from the panel if you need to de-power the building.", "exits");
+                game.addOutput("", "normal");
+                
+                // Remove the item from inventory after use
+                const index = game.inventory.findIndex(item => item.id === 'fuse');
+                game.inventory.splice(index, 1);
+                
+                // Clear dangerous status from claims
+                const claimsRoom = game.graph.getRoom('claims');
+                if (claimsRoom) {
+                    claimsRoom.isDangerous = false;
+                    claimsRoom.dangerMessage = "";
+                }
+                
+                // Clear dangerous status from cafeteria when power is restored
+                const cafeteriaRoom = game.graph.getRoom('cafeteria');
+                if (cafeteriaRoom) {
+                    cafeteriaRoom.isDangerous = false;
+                    cafeteriaRoom.dangerMessage = "";
+                }
+                
+                // Make sub-basement dangerous when power is restored (electrified water!)
+                const subbasementRoom = game.graph.getRoom('sub-basement');
+                if (subbasementRoom) {
+                    subbasementRoom.isDangerous = true;
+                    subbasementRoom.dangerMessage = "⚡ The water is ELECTRIFIED! You're being shocked!";
+                }
+                
+                game.updateStats();
+            } else if (game.gameState.powerRestored) {
+                game.addOutput("The power is already restored.", "normal");
+            } else {
+                game.addOutput("You need to be at the server room breaker panel to use this.", "error");
+            }
+        });
+        
         this.inventory.push(fuse);
         this.addOutput("You put the fuse back in your pocket.", "normal");
         
@@ -826,10 +908,14 @@ class Game {
     /**
      * Add text to the output area
      */
-    addOutput(text, className = "normal") {
+    addOutput(text, className = "normal", useHTML = false) {
         const line = document.createElement('div');
         line.className = `output-line ${className}`;
-        line.textContent = text;
+        if (useHTML) {
+            line.innerHTML = text;
+        } else {
+            line.textContent = text;
+        }
         this.outputElement.appendChild(line);
         this.outputElement.scrollTop = this.outputElement.scrollHeight;
     }
