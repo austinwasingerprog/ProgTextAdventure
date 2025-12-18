@@ -32,7 +32,10 @@ class Game {
             executiveUnlocked: false,
             labUnlocked: false,
             mechanicalFixed: false,
-            storageOpened: false
+            storageOpened: false,
+            elevatorUnlocked: false,
+            fuseInstalled: false,
+            elevatorAccess: false  // Requires BOTH power AND elevator key
         };
     }
 
@@ -419,6 +422,11 @@ class Game {
             return;
         }
 
+        if (action === 'remove' && target === 'fuse') {
+            this.removeFuse();
+            return;
+        }
+
         // Standard commands
         switch (action) {
             case 'look':
@@ -530,6 +538,14 @@ class Game {
 
         if (this.inventory.length >= this.maxInventorySize) {
             this.addOutput("Your inventory is full!", "error");
+            return;
+        }
+
+        // Special case: elevator key in sub-basement when power is on
+        if (this.currentRoom.id === 'sub-basement' && itemId === 'elevator-key' && this.gameState.powerRestored) {
+            this.addOutput("⚡ The elevator access card is submerged in electrified water! You can see it clearly,", "error");
+            this.addOutput("but touching the water would be instantly fatal. You need to remove the fuse to de-power", "error");
+            this.addOutput("the building first. Type 'REMOVE FUSE' in the server room to shut off power.", "error");
             return;
         }
 
@@ -662,6 +678,59 @@ class Game {
     }
 
     /**
+     * Remove fuse from server room to de-power the building
+     */
+    removeFuse() {
+        if (this.currentRoom.id !== 'servers') {
+            this.addOutput("There's no fuse to remove here. The breaker panel is in the server room.", "error");
+            return;
+        }
+
+        if (!this.gameState.fuseInstalled) {
+            this.addOutput("There's no fuse installed in the breaker panel.", "normal");
+            return;
+        }
+
+        // Remove power
+        this.gameState.powerRestored = false;
+        this.gameState.fuseInstalled = false;
+        this.gameState.elevatorAccess = false;  // Elevator needs power
+        
+        this.addOutput("🔧 You carefully remove the fuse from the breaker panel...", "normal");
+        this.addOutput("", "normal");
+        this.addOutput("CLUNK! The building goes dark again. Emergency lights flicker on.", "normal");
+        this.addOutput("The claims area toxic fumes return as the vents shut down.", "normal");
+        this.addOutput("The sub-basement water is no longer electrified - you can safely retrieve items now!", "success");
+        this.addOutput("", "normal");
+
+        // Make claims dangerous again
+        const claimsRoom = this.graph.getRoom('claims');
+        if (claimsRoom) {
+            claimsRoom.setDangerous("💀 The toxic fumes are hurting you!");
+        }
+
+        // Make basement dangerous again
+        const basementRoom = this.graph.getRoom('basement');
+        if (basementRoom) {
+            basementRoom.setDangerous("⚡ The exposed wires are electrifying the water! You're being shocked!");
+        }
+
+        // Make sub-basement safe
+        const subbasementRoom = this.graph.getRoom('sub-basement');
+        if (subbasementRoom) {
+            subbasementRoom.isDangerous = false;
+            subbasementRoom.dangerMessage = "";
+        }
+
+        // Add fuse back to inventory
+        const fuse = new Item('fuse', 'Replacement Fuse', 'A heavy electrical fuse. This could restore power... but it might also electrify flooded areas.', 'tool');
+        this.inventory.push(fuse);
+        this.addOutput("You put the fuse back in your pocket.", "normal");
+        
+        this.updateStats();
+    }
+
+    /**
      * Player death
      */
     die() {
@@ -707,10 +776,10 @@ class Game {
         this.addOutput("Items: take [item], drop [item], use [item], examine [item]", "normal");
         this.addOutput("Info: inventory (i), look (l), stats, exits, help (h)", "normal");
         this.addOutput("Settings: tips (toggle helpful hints)", "normal");
-        this.addOutput("Special: escape (when on roof)", "normal");
+        this.addOutput("Special: escape (when on roof), remove fuse (in server room)", "normal");
         this.addOutput("");
-        this.addOutput("💡 Tip: Use the basement-key at Claims to unlock the basement.", "exits");
-        this.addOutput("💡 Tip: Use the fuse in the basement to restore power.", "exits");
+        this.addOutput("💡 Tip: Power management is key - you can install and remove the fuse as needed.", "exits");
+        this.addOutput("💡 Tip: Some areas become dangerous when powered, others when unpowered.", "exits");
         this.addOutput("💡 Tip: Examine items to learn more about them.", "exits");
         this.addOutput("");
     }

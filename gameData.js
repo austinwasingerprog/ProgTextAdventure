@@ -70,16 +70,20 @@ function initializeGame() {
     const fuse = new Item(
         'fuse',
         'Replacement Fuse',
-        'A heavy electrical fuse. This could restore power.',
+        'A heavy electrical fuse. This could restore power... but it might also electrify flooded areas.',
         'tool'
     ).setUsable((game) => {
-        if (game.currentRoom.id === 'basement' && !game.gameState.powerRestored) {
+        if (game.currentRoom.id === 'servers' && !game.gameState.powerRestored) {
             game.gameState.powerRestored = true;
-            game.addOutput("⚡ You install the fuse into the breaker panel...", "success");
+            game.gameState.fuseInstalled = true;
+            game.addOutput("⚡ You install the fuse into the server room breaker panel...", "success");
             game.addOutput("", "normal");
             game.addOutput("CLUNK! The breakers flip on. Lights flicker to life throughout the building!", "success");
             game.addOutput("The contamination vents in the Claims Department activate and clear the air.", "success");
-            game.addOutput("The elevator to the roof should now be operational from the lobby!", "success");
+            game.addOutput("Power is restored, but the lobby elevator still won't budge - it needs an access card.", "normal");
+            game.addOutput("", "normal");
+            game.addOutput("⚠️  WARNING: You hear a crackling sound from deep below... the sub-basement water is now ELECTRIFIED!", "error");
+            game.addOutput("💡 Tip: You can REMOVE the fuse from the panel if you need to de-power the building.", "exits");
             game.addOutput("", "normal");
             
             // Remove the item from inventory after use
@@ -94,14 +98,17 @@ function initializeGame() {
             }
             
             // Clear dangerous status from basement
-            game.currentRoom.isDangerous = false;
-            game.currentRoom.dangerMessage = "";
+            const basementRoom = game.graph.getRoom('basement');
+            if (basementRoom) {
+                basementRoom.isDangerous = false;
+                basementRoom.dangerMessage = "";
+            }
             
             game.updateStats();
         } else if (game.gameState.powerRestored) {
             game.addOutput("The power is already restored.", "normal");
         } else {
-            game.addOutput("You need to be at the electrical panel in the basement to use this.", "error");
+            game.addOutput("You need to be at the server room breaker panel to use this.", "error");
         }
     });
 
@@ -255,6 +262,29 @@ function initializeGame() {
         'key'
     );
 
+    const elevatorkey = new Item(
+        'elevator-key',
+        'Elevator Access Card',
+        'A keycard that grants access to the executive elevator. Required for roof access.',
+        'key'
+    ).setUsable((game) => {
+        if (game.currentRoom.id === 'lobby' && game.gameState.powerRestored) {
+            game.gameState.elevatorUnlocked = true;
+            game.gameState.elevatorAccess = true;  // Both conditions met!
+            game.addOutput("🔑 You swipe the elevator access card. The elevator doors open with a ding!", "success");
+            game.addOutput("The roof is now accessible!", "success");
+            // Remove the item from inventory after use
+            const index = game.inventory.findIndex(item => item.id === 'elevator-key');
+            game.inventory.splice(index, 1);
+        } else if (game.gameState.elevatorAccess) {
+            game.addOutput("The elevator is already unlocked.", "normal");
+        } else if (!game.gameState.powerRestored) {
+            game.addOutput("The elevator has no power. You need to restore power first.", "error");
+        } else {
+            game.addOutput("Use this at the lobby elevator.", "error");
+        }
+    });
+
     const document = new Item(
         'documents',
         'Classified Documents',
@@ -271,11 +301,11 @@ function initializeGame() {
         if (game.currentRoom.id === 'storage' && !game.gameState.storageOpened) {
             game.gameState.storageOpened = true;
             game.addOutput("💪 You pry open the locked storage cabinet!", "success");
-            game.addOutput("Inside you find... something useful.", "success");
+            game.addOutput("Inside you find advanced supplies!", "success");
             const storageRoom = game.graph.getRoom('storage');
             if (storageRoom) {
-                storageRoom.addItem(hazmat);
-                storageRoom.addItem(wrench);
+                storageRoom.addItem(gasmask);
+                storageRoom.addItem(firstaid);
                 storageRoom.addItem(adrenaline);
             }
         } else {
@@ -290,8 +320,7 @@ function initializeGame() {
         "security",
         "Security Office",
         "Your small security office. Monitors flicker with static. Papers are scattered " +
-        "everywhere. The emergency lights cast an eerie red glow. This is the only place " +
-        "that feels safe right now."
+        "everywhere. The emergency lights cast an eerie red glow. This is the only place that feels safe right now."
     );
     security.addItem(flashlight);
     security.addItem(keycard);
@@ -338,7 +367,8 @@ function initializeGame() {
         "You need to put this out or get out fast!"
     );
     datacenter.setDangerous("🔥 The smoke and heat are damaging you!");
-    datacenter.addItem(painkiller);
+    datacenter.addItem(extinguisher);
+    datacenter.addItem(batteries);
 
     // Room 6: Break Room - Safe, has items
     const breakroom = new Room(
@@ -358,8 +388,8 @@ function initializeGame() {
         "A cramped supply closet filled with cleaning products, paper supplies, and safety equipment. " +
         "The chemical smell is strong but not dangerous. Emergency supplies line the shelves."
     );
-    supply.addItem(gasmask);
-    supply.addItem(extinguisher);
+    supply.addItem(hazmat);
+    supply.addItem(batteries);
 
     // Room 8: Executive Office - Locked initially
     const executive = new Room(
@@ -379,6 +409,8 @@ function initializeGame() {
         "penetrates the gloom. Papers are strewn everywhere. You hear strange echoes. " +
         "Energy drains faster in this disorienting space."
     );
+    archive.addItem(wrench);
+    archive.addItem(painkiller);
 
     // Room 10: Mechanical Room - Dangerous, loud
     const mechanical = new Room(
@@ -397,7 +429,7 @@ function initializeGame() {
         "A cluttered storage room filled with old equipment and supplies. Metal shelving units " +
         "line the walls. A locked cabinet in the corner looks promising. You'll need something to pry it open."
     );
-    storage.addItem(painkiller);
+    storage.addItem(energydrink);
 
     // Room 12: Executive Hallway - Safe
     const executiveHall = new Room(
@@ -417,7 +449,8 @@ function initializeGame() {
     );
     boardroom.addItem(document);
     boardroom.addItem(roofkey);
-    boardroom.addItem(adrenaline);
+    boardroom.addItem(labkey);
+    boardroom.addItem(energydrink);
 
     // Room 14: IT Office - Safe, tech items
     const itoffice = new Room(
@@ -436,7 +469,7 @@ function initializeGame() {
         "A sterile white hallway. Warning signs are posted everywhere: 'BIOHAZARD', 'AUTHORIZED PERSONNEL ONLY'. " +
         "The research lab door is sealed. You need the right key to access it."
     );
-    labHall.addItem(labkey);
+    labHall.addItem(painkiller);
 
     // Room 16: Research Lab - DANGEROUS (toxic/biohazard) (locked initially)
     const researchLab = new Room(
@@ -446,8 +479,8 @@ function initializeGame() {
         "has been released. The air is thick with an unidentifiable mist. Extremely dangerous!"
     );
     researchLab.setDangerous("☣️ Toxic chemicals are burning your skin and lungs!");
-    researchLab.addItem(hazmat);
-    researchLab.addItem(sedative);
+    researchLab.addItem(adrenaline);
+    researchLab.addItem(coffee);
 
     // Room 17: Cafeteria - Safe, lots of consumables
     const cafeteria = new Room(
@@ -477,29 +510,31 @@ function initializeGame() {
         "Water drips constantly. It's disorienting down here - you can barely tell which way is which. " +
         "Your energy drains faster in this oppressive space."
     );
+    tunnel.addItem(firstaid);
 
-    // Room 20: Sub-basement - VERY DANGEROUS
+    // Room 20: Sub-basement - Platform area, elevator key in water
     const subbasement = new Room(
         "sub-basement",
         "Sub-Basement - Flooded",
-        "The sub-basement is severely flooded. Water is waist-deep and rising. Old machinery looms " +
-        "in the darkness. Something doesn't feel right down here. The water is ice cold and electrified. " +
-        "Get what you need and GET OUT!"
+        "You're standing on a small maintenance platform above waist-deep ice-cold water. Old machinery looms " +
+        "in the darkness. Through the murky water, you can see what looks like an elevator access card resting " +
+        "on the flooded floor below. The exposed wiring everywhere makes you nervous - if power is restored, " +
+        "this water will become electrified!"
     );
-    subbasement.setDangerous("⚡❄️ The electrified ice-cold water is deadly!");
-    subbasement.addItem(accesscard);
+    // NOT dangerous initially - can't reach the water from platform
+    subbasement.addItem(elevatorkey);
     subbasement.addItem(fuse);
 
 
-    // Basement - DANGEROUS and has power solution
+    // Basement - DANGEROUS initially (electrified water), safe after power is restored
     const basement = new Room(
         "basement",
         "Basement - Electrical Room",
-        "The basement is flooded with ankle-deep water. Exposed wires dangle from the ceiling. " +
-        "The main breaker panel is here, but you need the right fuse to restore power. " +
-        "Water drips from pipes overhead. Each step sends ripples through the dark water."
+        "The basement is flooded with ankle-deep water. Exposed wires dangle from the ceiling, sparking " +
+        "dangerously. The main breaker panel is here - someone removed the fuse in a panic. " +
+        "You need to install a fuse to restore power, but the exposed wiring is making the water deadly!"
     );
-    basement.setDangerous("⚡ The water is electrified! You're being shocked!");
+    basement.setDangerous("⚡ The exposed wires are electrifying the water! You're being shocked!");
 
     // Roof Access - Escape route
     const roof = new Room(
@@ -529,7 +564,7 @@ function initializeGame() {
         .addExit("east", "claims")
         .addExit("west", "breakroom")
         .addExit("north", "cafeteria")
-        .addExit("up", "roof", true, "powerRestored");
+        .addExit("up", "roof", true, "elevatorAccess");
 
     claims
         .addExit("west", "lobby")
