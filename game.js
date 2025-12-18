@@ -264,7 +264,7 @@ class Game {
         if (directions.length === 0) {
             return "No obvious exits.";
         }
-        return `Exits: ${allDirections.join(', ')}`;
+        return `Exits: ${directions.join(', ')}`;
     }
 
     /**
