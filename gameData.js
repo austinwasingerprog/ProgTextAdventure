@@ -53,21 +53,17 @@ function initializeGame() {
     const basement_key = new Item(
         'basement-key',
         'Rusty Basement Key',
-        'An old key labeled "ELECTRICAL - BASEMENT ACCESS". Opens the basement from multiple locations.',
+        'An old key labeled "ELECTRICAL - BASEMENT ACCESS". Opens the main basement entrance from Claims.',
         'key'
     ).setUsable((game) => {
-        if ((game.currentRoom.id === 'claims' || game.currentRoom.id === 'tunnel') && !game.gameState.basementUnlocked) {
+        if (game.currentRoom.id === 'claims' && !game.gameState.basementUnlocked) {
             game.gameState.basementUnlocked = true;
             game.addOutput("✅ You unlock the basement door with the rusty key. The heavy door swings open.", "success");
-            if (game.currentRoom.id === 'claims') {
-                game.addOutput("A dark stairway leads DOWN to the basement.", "normal");
-            } else {
-                game.addOutput("A reinforced door to the EAST now grants access to the basement.", "normal");
-            }
+            game.addOutput("A dark stairway leads DOWN to the basement.", "normal");
         } else if (game.gameState.basementUnlocked) {
             game.addOutput("The basement is already unlocked.", "normal");
         } else {
-            game.addOutput("There's nothing to unlock here. Try using this at a basement access point (Claims or Tunnel).", "error");
+            game.addOutput("There's nothing to unlock here. Try using this at the basement door in Claims.", "error");
         }
     });
 
@@ -102,18 +98,18 @@ function initializeGame() {
                 claimsRoom.dangerMessage = "";
             }
             
-            // Clear dangerous status from basement
-            const basementRoom = game.graph.getRoom('basement');
-            if (basementRoom) {
-                basementRoom.isDangerous = false;
-                basementRoom.dangerMessage = "";
-            }
-            
             // Clear dangerous status from cafeteria when power is restored
             const cafeteriaRoom = game.graph.getRoom('cafeteria');
             if (cafeteriaRoom) {
                 cafeteriaRoom.isDangerous = false;
                 cafeteriaRoom.dangerMessage = "";
+            }
+            
+            // Make sub-basement dangerous when power is restored (electrified water!)
+            const subbasementRoom = game.graph.getRoom('sub-basement');
+            if (subbasementRoom) {
+                subbasementRoom.isDangerous = true;
+                subbasementRoom.dangerMessage = "⚡ The water is ELECTRIFIED! You're being shocked!";
             }
             
             game.updateStats();
@@ -312,8 +308,13 @@ function initializeGame() {
     ).setUsable((game) => {
         if (game.currentRoom.id === 'storage' && !game.gameState.storageOpened) {
             game.gameState.storageOpened = true;
+            game.gameState.cabinetMoved = true;
             game.addOutput("💪 You pry open the locked storage cabinet!", "success");
             game.addOutput("Inside you find advanced supplies!", "success");
+            game.addOutput("", "normal");
+            game.addOutput("🤔 As the cabinet swings open, something catches your eye...", "normal");
+            game.addOutput("The back wall of the cabinet looks strange - the paneling seems loose or hollow.", "normal");
+            //game.addOutput("💡 Maybe you should EXAMINE the cabinet more closely?", "exits");
             const storageRoom = game.graph.getRoom('storage');
             if (storageRoom) {
                 storageRoom.addItem(gasmask);
@@ -392,6 +393,7 @@ function initializeGame() {
     );
     breakroom.addItem(energydrink);
     breakroom.addItem(firstaid);
+    breakroom.addItem(basement_key);
 
     // Room 7: Supply Closet - Safe, important items
     const supply = new Room(
@@ -404,7 +406,7 @@ function initializeGame() {
     supply.addItem(batteries);
     supply.addItem(fuse);
 
-    // Room 8: Executive Office - Locked initially
+    // Room 8: Executive Office - Accessible from hallway
     const executive = new Room(
         "executive",
         "Executive Office",
@@ -414,12 +416,13 @@ function initializeGame() {
     );
     executive.addItem(accesscard);
 
-    // Room 9: Storage Archive - Dark maze-like area
+    // Room 9: Artwork Archive - Dark maze-like area
     const archive = new Room(
         "archive",
-        "Storage Archive",
-        "Rows of filing cabinets and storage boxes create a maze. The emergency lighting barely " +
-        "penetrates the gloom. Papers are strewn everywhere. You hear strange echoes. " +
+        "Artwork Archive",
+        "A dimly lit archive room filled with framed artwork, sculptures, and display cases. " +
+        "The company's art collection is stored here in a maze-like arrangement. The emergency lighting barely " +
+        "penetrates the gloom between the tall display racks. You hear strange echoes. " +
         "Energy drains faster in this disorienting space."
     );
     archive.addItem(wrench);
@@ -435,13 +438,12 @@ function initializeGame() {
     );
     mechanical.setDangerous("💨 Steam vents scald you! The heat is unbearable!");
 
-    // Room 11: Storage Room - Safe, puzzle room, tunnel access
+    // Room 11: Storage Room - Safe, puzzle room, hidden tunnel access
     const storage = new Room(
         "storage",
         "Storage Room",
         "A cluttered storage room filled with old equipment and supplies. Metal shelving units " +
-        "line the walls. A locked cabinet in the corner looks promising. You'll need something to pry it open. " +
-        "In the back corner, you notice a rusty maintenance hatch that leads down to the building's tunnel system."
+        "line the walls. A locked cabinet in the corner looks promising. You'll need something to pry it open."
     );
     storage.addItem(energydrink);
 
@@ -520,27 +522,25 @@ function initializeGame() {
     garage.addItem(crowbar);
     garage.addItem(batteries);
 
-    // Room 19: Maintenance Tunnel - Under storage, connects to basement area
+    // Room 19: Maintenance Tunnel - Secret passage under storage, connects to basement area
     const tunnel = new Room(
         "tunnel",
         "Maintenance Tunnel",
-        "A narrow maintenance tunnel with exposed pipes and electrical conduits. This tunnel appears to run " +
-        "under the main building toward the claims area. The walls are damp and cold. Rust-stained water pools " +
-        "on the concrete floor. You can hear machinery humming somewhere in the distance."
+        "A narrow maintenance tunnel with exposed pipes and electrical conduits. This secret passage appears to run " +
+        "under the main building toward the basement area. The walls are damp and cold. Rust-stained water pools " +
+        "on the concrete floor. You can hear machinery humming in the distance. This must be how maintenance workers " +
+        "accessed the lower levels without going through the main building."
     );
     tunnel.addItem(firstaid);
-    tunnel.addItem(basement_key);
 
-    // Basement - DANGEROUS initially (electrified water), safe after power is restored
+    // Basement - Safe (key-locked, so already earned access)
     const basement = new Room(
         "basement",
         "Basement - Electrical Room",
-        "The basement electrical room is flooded with ankle-deep water. Exposed wires dangle from the ceiling, " +
-        "sparking dangerously. The main breaker panel is here - someone removed the fuse in a panic. " +
-        "A rusted metal ladder leads down to an even deeper level. You need to install a fuse to restore power, " +
-        "but the exposed wiring is making the water deadly!"
+        "The basement electrical room has some ankle-deep water in places. Old electrical panels line the walls. " +
+        "The main breaker panel is dark - someone removed the fuse. A rusted metal ladder leads down to an even " +
+        "deeper level. You can hear the sound of dripping water echoing from below."
     );
-    basement.setDangerous("⚡ The exposed wires are electrifying the water! You're being shocked!");
 
     // Room 20: Sub-basement - Accessible through basement, elevator key in water
     const subbasement = new Room(
@@ -559,7 +559,8 @@ function initializeGame() {
         "roof",
         "Roof Access",
         "Fresh air! You emerge onto the roof. The city lights twinkle in the distance. " +
-        "You can see a fire escape ladder leading down to the street. Freedom is so close!"
+        "You can see a fire escape ladder leading down to the street. Freedom is so close! " +
+        "Type 'ESCAPE' to climb down the fire escape and win!"
     );
     
     // Victory! (handled specially in game logic)
@@ -638,7 +639,7 @@ function initializeGame() {
 
     storage
         .addExit("east", "security")
-        .addExit("down", "tunnel");
+        .addExit("down", "tunnel", true, "tunnelRevealed");
 
     archive
         .addExit("north", "security")
@@ -650,19 +651,19 @@ function initializeGame() {
 
     tunnel
         .addExit("up", "storage")
-        .addExit("east", "basement", true, "basementUnlocked");
+        .addExit("east", "basement");
 
     basement
-        .addExit("up", "claims")
-        .addExit("west", "tunnel", true, "basementUnlocked")
+        .addExit("up", "claims", true, "basementUnlocked")
+        .addExit("west", "tunnel")
         .addExit("down", "sub-basement");
 
     subbasement
         .addExit("up", "basement");
 
     roof
-        .addExit("down", "lobby");
-        // Escape handled by special command
+        .addExit("down", "lobby")
+        .addExit("escape", "freedom");
 
     // Build graph
     graph

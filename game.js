@@ -615,6 +615,31 @@ class Game {
             return;
         }
 
+        // Special case: Examining cabinet in storage room after using crowbar
+        if ((itemId === 'cabinet' || itemId === 'wall') && 
+            this.currentRoom.id === 'storage' && 
+            this.gameState.cabinetMoved && 
+            !this.gameState.tunnelRevealed) {
+            
+            this.gameState.tunnelRevealed = true;
+            this.addOutput("🔍 You examine the back of the storage cabinet more closely...", "normal");
+            this.addOutput("", "normal");
+            this.addOutput("The loose paneling isn't just damaged - it's a false wall!", "success");
+            this.addOutput("You push on it and it swings inward, revealing a hidden maintenance hatch.", "success");
+            this.addOutput("A narrow passage leads DOWN into what appears to be a secret maintenance tunnel system.", "success");
+            this.addOutput("", "normal");
+            this.addOutput("🔓 A new path has been revealed! (Type 'look' to see updated exits)", "exits");
+            
+            // Update room description
+            const storageRoom = this.graph.getRoom('storage');
+            if (storageRoom) {
+                storageRoom.description = "A cluttered storage room filled with old equipment and supplies. Metal shelving units " +
+                    "line the walls. The pried-open cabinet now reveals a hidden maintenance hatch in the wall behind it, " +
+                    "leading DOWN to a secret tunnel system.";
+            }
+            return;
+        }
+
         // Check inventory
         let item = this.inventory.find(item => item.id === itemId);
         
@@ -710,19 +735,13 @@ class Game {
             claimsRoom.setDangerous("💀 The toxic fumes are hurting you!");
         }
 
-        // Make basement dangerous again
-        const basementRoom = this.graph.getRoom('basement');
-        if (basementRoom) {
-            basementRoom.setDangerous("⚡ The exposed wires are electrifying the water! You're being shocked!");
-        }
-
         // Make cafeteria dangerous again when power is removed
         const cafeteriaRoom = this.graph.getRoom('cafeteria');
         if (cafeteriaRoom) {
             cafeteriaRoom.setDangerous("🦠 Toxic mold spores from spoiled food fill the air! You're choking!");
         }
 
-        // Make sub-basement safe
+        // Make sub-basement safe again (water not electrified)
         const subbasementRoom = this.graph.getRoom('sub-basement');
         if (subbasementRoom) {
             subbasementRoom.isDangerous = false;
