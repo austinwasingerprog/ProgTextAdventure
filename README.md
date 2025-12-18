@@ -1,27 +1,6 @@
 # Flo's Adventure - Progressive Insurance Text Adventure
 
-A well-architected text adventure game with a Progressive Insurance theme, featuring a clean graph-based room system and powerful debug visualization tools.
-
-## 🎮 Features
-
-- **5 Themed Rooms**: Explore Progressive Insurance headquarters
-  - Lobby (starting point)
-  - Claims Processing Department
-  - Name Your Price Tool Lab
-  - Marketing & Advertising Department
-  - Executive Conference Room
-
-- **Robust Architecture**:
-  - Clean separation of concerns (Room, Graph, Game classes)
-  - Easy-to-debug graph structure
-  - Static generation with simple data configuration
-  - Graph validation to catch broken connections
-
-- **Debug Visualization**:
-  - ASCII map view with room connections
-  - Interactive HTML Canvas graph with pan and zoom
-  - Detailed room information cards
-  - Visual connection mapping
+A text adventure game with a Progressive Insurance theme, featuring a node-based room system and debug visualization tools.
 
 ## 🏗️ Architecture
 
@@ -177,10 +156,3 @@ To extend the game:
 3. Add new commands in the Game class
 4. Enhance visualizations in `debug.js`
 
-## 📝 License
-
-Free to use and modify for learning purposes!
-
----
-
-Enjoy exploring Progressive Insurance headquarters with Flo! 🏢✨
