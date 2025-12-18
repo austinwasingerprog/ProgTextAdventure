@@ -53,17 +53,21 @@ function initializeGame() {
     const basement_key = new Item(
         'basement-key',
         'Rusty Basement Key',
-        'An old key labeled "ELECTRICAL". Might fit the basement door.',
+        'An old key labeled "ELECTRICAL - BASEMENT ACCESS". Opens the basement from multiple locations.',
         'key'
     ).setUsable((game) => {
-        if (game.currentRoom.id === 'claims' && !game.gameState.basementUnlocked) {
+        if ((game.currentRoom.id === 'claims' || game.currentRoom.id === 'tunnel') && !game.gameState.basementUnlocked) {
             game.gameState.basementUnlocked = true;
-            game.addOutput("✅ You unlock the basement door with the rusty key. You hear it creak open below.", "success");
-            game.addOutput("A dark stairway leads DOWN to the basement.", "normal");
+            game.addOutput("✅ You unlock the basement door with the rusty key. The heavy door swings open.", "success");
+            if (game.currentRoom.id === 'claims') {
+                game.addOutput("A dark stairway leads DOWN to the basement.", "normal");
+            } else {
+                game.addOutput("A reinforced door to the EAST now grants access to the basement.", "normal");
+            }
         } else if (game.gameState.basementUnlocked) {
             game.addOutput("The basement is already unlocked.", "normal");
         } else {
-            game.addOutput("There's nothing to unlock here. Try using this at the basement door in Claims.", "error");
+            game.addOutput("There's nothing to unlock here. Try using this at a basement access point (Claims or Tunnel).", "error");
         }
     });
 
@@ -80,6 +84,7 @@ function initializeGame() {
             game.addOutput("", "normal");
             game.addOutput("CLUNK! The breakers flip on. Lights flicker to life throughout the building!", "success");
             game.addOutput("The contamination vents in the Claims Department activate and clear the air.", "success");
+            game.addOutput("The cafeteria refrigeration system hums to life - the air clears as ventilation starts!", "success");
             game.addOutput("Power is restored, but the lobby elevator still won't budge - it needs an access card.", "normal");
             game.addOutput("", "normal");
             game.addOutput("⚠️  WARNING: You hear a crackling sound from deep below... the sub-basement water is now ELECTRIFIED!", "error");
@@ -102,6 +107,13 @@ function initializeGame() {
             if (basementRoom) {
                 basementRoom.isDangerous = false;
                 basementRoom.dangerMessage = "";
+            }
+            
+            // Clear dangerous status from cafeteria when power is restored
+            const cafeteriaRoom = game.graph.getRoom('cafeteria');
+            if (cafeteriaRoom) {
+                cafeteriaRoom.isDangerous = false;
+                cafeteriaRoom.dangerMessage = "";
             }
             
             game.updateStats();
@@ -348,14 +360,14 @@ function initializeGame() {
     claims.setDangerous("💀 The toxic fumes are hurting you!");
     claims.addItem(firstaid);
 
-    // Room 4: Server Room - Safe but dark
+    // Room 4: Server Room - Safe but dark (power restoration location)
     const servers = new Room(
         "servers",
         "Server Room",
         "Rows of dark server racks hum quietly on backup power. The blue indicator lights " +
-        "provide minimal illumination. It's cold in here - very cold. You can see your breath."
+        "provide minimal illumination. It's cold in here - very cold. You can see your breath. " +
+        "The main breaker panel is mounted on the far wall, waiting for a replacement fuse."
     );
-    servers.addItem(basement_key);
     servers.addItem(batteries);
 
     // Room 5B: Data Center - DANGEROUS (fire/smoke)
@@ -390,6 +402,7 @@ function initializeGame() {
     );
     supply.addItem(hazmat);
     supply.addItem(batteries);
+    supply.addItem(fuse);
 
     // Room 8: Executive Office - Locked initially
     const executive = new Room(
@@ -422,12 +435,13 @@ function initializeGame() {
     );
     mechanical.setDangerous("💨 Steam vents scald you! The heat is unbearable!");
 
-    // Room 11: Storage Room - Safe, puzzle room
+    // Room 11: Storage Room - Safe, puzzle room, tunnel access
     const storage = new Room(
         "storage",
         "Storage Room",
         "A cluttered storage room filled with old equipment and supplies. Metal shelving units " +
-        "line the walls. A locked cabinet in the corner looks promising. You'll need something to pry it open."
+        "line the walls. A locked cabinet in the corner looks promising. You'll need something to pry it open. " +
+        "In the back corner, you notice a rusty maintenance hatch that leads down to the building's tunnel system."
     );
     storage.addItem(energydrink);
 
@@ -482,13 +496,15 @@ function initializeGame() {
     researchLab.addItem(adrenaline);
     researchLab.addItem(coffee);
 
-    // Room 17: Cafeteria - Safe, lots of consumables
+    // Room 17: Cafeteria - DANGEROUS without power, safe after power restored
     const cafeteria = new Room(
         "cafeteria",
         "Employee Cafeteria",
         "A large cafeteria with dozens of tables. The kitchen door is ajar. Food is still on some tables - " +
-        "whatever happened, it happened fast. The vending machines are accessible."
+        "whatever happened, it happened fast. The vending machines are accessible. " +
+        "The refrigeration units failed days ago - the smell of rot is overwhelming."
     );
+    cafeteria.setDangerous("🦠 Toxic mold spores from spoiled food fill the air! You're choking!");
     cafeteria.addItem(energydrink);
     cafeteria.addItem(coffee);
     cafeteria.addItem(firstaid);
@@ -498,43 +514,45 @@ function initializeGame() {
         "garage",
         "Underground Parking Garage",
         "A dark concrete parking garage. Most of the cars are gone. The few that remain are abandoned. " +
-        "Fluorescent lights flicker overhead. Oil stains and tire marks everywhere. The exit ramp is blocked."
+        "Fluorescent lights flicker overhead. Oil stains and tire marks everywhere. The exit ramp is blocked. " +
+        "A maintenance toolkit sits on a workbench near an abandoned security vehicle."
     );
     garage.addItem(crowbar);
+    garage.addItem(batteries);
 
-    // Room 19: Maintenance Tunnel - Energy drain area
+    // Room 19: Maintenance Tunnel - Under storage, connects to basement area
     const tunnel = new Room(
         "tunnel",
         "Maintenance Tunnel",
-        "A claustrophobic maintenance tunnel running under the building. Pipes and cables line the walls. " +
-        "Water drips constantly. It's disorienting down here - you can barely tell which way is which. " +
-        "Your energy drains faster in this oppressive space."
+        "A narrow maintenance tunnel with exposed pipes and electrical conduits. This tunnel appears to run " +
+        "under the main building toward the claims area. The walls are damp and cold. Rust-stained water pools " +
+        "on the concrete floor. You can hear machinery humming somewhere in the distance."
     );
     tunnel.addItem(firstaid);
-
-    // Room 20: Sub-basement - Platform area, elevator key in water
-    const subbasement = new Room(
-        "sub-basement",
-        "Sub-Basement - Flooded",
-        "You're standing on a small maintenance platform above waist-deep ice-cold water. Old machinery looms " +
-        "in the darkness. Through the murky water, you can see what looks like an elevator access card resting " +
-        "on the flooded floor below. The exposed wiring everywhere makes you nervous - if power is restored, " +
-        "this water will become electrified!"
-    );
-    // NOT dangerous initially - can't reach the water from platform
-    subbasement.addItem(elevatorkey);
-    subbasement.addItem(fuse);
-
+    tunnel.addItem(basement_key);
 
     // Basement - DANGEROUS initially (electrified water), safe after power is restored
     const basement = new Room(
         "basement",
         "Basement - Electrical Room",
-        "The basement is flooded with ankle-deep water. Exposed wires dangle from the ceiling, sparking " +
-        "dangerously. The main breaker panel is here - someone removed the fuse in a panic. " +
-        "You need to install a fuse to restore power, but the exposed wiring is making the water deadly!"
+        "The basement electrical room is flooded with ankle-deep water. Exposed wires dangle from the ceiling, " +
+        "sparking dangerously. The main breaker panel is here - someone removed the fuse in a panic. " +
+        "A rusted metal ladder leads down to an even deeper level. You need to install a fuse to restore power, " +
+        "but the exposed wiring is making the water deadly!"
     );
     basement.setDangerous("⚡ The exposed wires are electrifying the water! You're being shocked!");
+
+    // Room 20: Sub-basement - Accessible through basement, elevator key in water
+    const subbasement = new Room(
+        "sub-basement",
+        "Sub-Basement - Deep Maintenance Level",
+        "You descend into the deepest level of the building. This forgotten sub-basement is heavily flooded - " +
+        "waist-deep ice-cold water fills the entire space. Old machinery and boilers loom in the darkness. " +
+        "Through the murky water below, you can see what looks like an elevator access card that someone dropped. " +
+        "The exposed wiring everywhere makes you very nervous - if power is restored, this water will become electrified!"
+    );
+    // NOT dangerous initially - water isn't electrified without power
+    subbasement.addItem(elevatorkey);
 
     // Roof Access - Escape route
     const roof = new Room(
@@ -616,11 +634,11 @@ function initializeGame() {
         .addExit("north", "garage");
 
     garage
-        .addExit("south", "cafeteria")
-        .addExit("down", "tunnel");
+        .addExit("south", "cafeteria");
 
     storage
-        .addExit("east", "security");
+        .addExit("east", "security")
+        .addExit("down", "tunnel");
 
     archive
         .addExit("north", "security")
@@ -631,14 +649,16 @@ function initializeGame() {
         .addExit("north", "datacenter");
 
     tunnel
-        .addExit("up", "garage")
+        .addExit("up", "storage")
+        .addExit("east", "basement", true, "basementUnlocked");
+
+    basement
+        .addExit("up", "claims")
+        .addExit("west", "tunnel", true, "basementUnlocked")
         .addExit("down", "sub-basement");
 
     subbasement
-        .addExit("up", "tunnel");
-
-    basement
-        .addExit("up", "claims");
+        .addExit("up", "basement");
 
     roof
         .addExit("down", "lobby");

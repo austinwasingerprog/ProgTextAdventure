@@ -25,8 +25,8 @@ class GraphLayoutCalculator {
 
         // Define direction offsets based on 2D or 3D mode
         const directionOffsets = is3D ? {
-            'north': { x: 0, y: 0, z: config.depthSpacing },
-            'south': { x: 0, y: 0, z: -config.depthSpacing },
+            'north': { x: 0, y: 0, z: -config.depthSpacing },
+            'south': { x: 0, y: 0, z: config.depthSpacing },
             'east': { x: config.horizontalSpacing, y: 0, z: 0 },
             'west': { x: -config.horizontalSpacing, y: 0, z: 0 },
             'up': { x: 0, y: config.verticalSpacing, z: 0 },

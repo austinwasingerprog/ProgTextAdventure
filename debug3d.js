@@ -345,7 +345,7 @@ class DebugView3D {
         const arrowHeadWidth = 0.4;
         
         const northArrow = new THREE.ArrowHelper(
-            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(0, 0, -1),
             new THREE.Vector3(0, 0, 0),
             arrowLength,
             0xff4444,
@@ -355,7 +355,7 @@ class DebugView3D {
         compassGroup.add(northArrow);
         
         const southArrow = new THREE.ArrowHelper(
-            new THREE.Vector3(0, 0, -1),
+            new THREE.Vector3(0, 0, 1),
             new THREE.Vector3(0, 0, 0),
             arrowLength * 0.5,
             0x666666,
@@ -388,7 +388,7 @@ class DebugView3D {
         
         this.scene.add(compassGroup);
         
-        this.addCompassLabel('N', -30, 1, -30 + arrowLength + 0.5, 0xff4444);
+        this.addCompassLabel('N', -30, 1, -30 - arrowLength - 0.5, 0xff4444);
         this.addCompassLabel('E', -30 + arrowLength + 0.5, 1, -30, 0x4444ff);
     }
     

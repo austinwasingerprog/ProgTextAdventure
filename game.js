@@ -700,6 +700,7 @@ class Game {
         this.addOutput("", "normal");
         this.addOutput("CLUNK! The building goes dark again. Emergency lights flicker on.", "normal");
         this.addOutput("The claims area toxic fumes return as the vents shut down.", "normal");
+        this.addOutput("The cafeteria refrigeration shuts down - mold spores fill the air again!", "error");
         this.addOutput("The sub-basement water is no longer electrified - you can safely retrieve items now!", "success");
         this.addOutput("", "normal");
 
@@ -713,6 +714,12 @@ class Game {
         const basementRoom = this.graph.getRoom('basement');
         if (basementRoom) {
             basementRoom.setDangerous("⚡ The exposed wires are electrifying the water! You're being shocked!");
+        }
+
+        // Make cafeteria dangerous again when power is removed
+        const cafeteriaRoom = this.graph.getRoom('cafeteria');
+        if (cafeteriaRoom) {
+            cafeteriaRoom.setDangerous("🦠 Toxic mold spores from spoiled food fill the air! You're choking!");
         }
 
         // Make sub-basement safe
