@@ -232,12 +232,6 @@ class Game {
                 "A lit button shows you can go UP to the roof.";
         }
         
-        // Update Basement description
-        if (room.id === 'basement' && this.gameState.powerRestored) {
-            description = "The basement electrical room is now safe. The water has drained away and the exposed " +
-                "wires are no longer sparking. The breaker panel shows all systems green. You did it!";
-        }
-        
         // Update Data Center description
         if (room.id === 'datacenter' && this.gameState.fireExtinguished) {
             description = "The Data Center is now safe. The fire suppressant foam covers the floor and equipment. " +

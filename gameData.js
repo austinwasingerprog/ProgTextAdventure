@@ -538,7 +538,7 @@ function initializeGame() {
         "basement",
         "Basement - Electrical Room",
         "The basement electrical room has some ankle-deep water in places. Old electrical panels line the walls. " +
-        "The main breaker panel is dark - someone removed the fuse. A rusted metal ladder leads down to an even " +
+        "Most of the equipment down here is non-functional. A rusted metal ladder leads down to an even " +
         "deeper level. You can hear the sound of dripping water echoing from below."
     );
 
@@ -549,7 +549,7 @@ function initializeGame() {
         "You descend into the deepest level of the building. This forgotten sub-basement is heavily flooded - " +
         "waist-deep ice-cold water fills the entire space. Old machinery and boilers loom in the darkness. " +
         "Through the murky water below, you can see what looks like an elevator access card that someone dropped. " +
-        "The exposed wiring everywhere makes you very nervous - if power is restored, this water will become electrified!"
+        "Damaged electrical wiring dangles from the ceiling everywhere - if power is restored, this water will become electrified!"
     );
     // NOT dangerous initially - water isn't electrified without power
     subbasement.addItem(elevatorkey);
