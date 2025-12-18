@@ -1165,6 +1165,98 @@ class DebugView3D {
         // Add axis helper (increased size)
         const axesHelper = new THREE.AxesHelper(15);
         this.scene.add(axesHelper);
+        
+        // Add compass indicator
+        this.addCompass();
+    }
+    
+    /**
+     * Add a compass indicator showing cardinal directions
+     */
+    addCompass() {
+        const compassGroup = new THREE.Group();
+        
+        // Create arrows for each cardinal direction
+        const arrowLength = 3;
+        const arrowHeadLength = 0.6;
+        const arrowHeadWidth = 0.4;
+        
+        // North (positive Z)
+        const northArrow = new THREE.ArrowHelper(
+            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(0, 0, 0),
+            arrowLength,
+            0xff4444,
+            arrowHeadLength,
+            arrowHeadWidth
+        );
+        compassGroup.add(northArrow);
+        
+        // South (negative Z) - Gray
+        const southArrow = new THREE.ArrowHelper(
+            new THREE.Vector3(0, 0, -1),
+            new THREE.Vector3(0, 0, 0),
+            arrowLength * 0.5,
+            0x666666,
+            arrowHeadLength * 0.5,
+            arrowHeadWidth * 0.5
+        );
+        compassGroup.add(southArrow);
+        
+        // East (positive X) - Red
+        const eastArrow = new THREE.ArrowHelper(
+            new THREE.Vector3(1, 0, 0),
+            new THREE.Vector3(0, 0, 0),
+            arrowLength,
+            0x4444ff,
+            arrowHeadLength,
+            arrowHeadWidth
+        );
+        compassGroup.add(eastArrow);
+        
+        // West (negative X) - Gray
+        const westArrow = new THREE.ArrowHelper(
+            new THREE.Vector3(-1, 0, 0),
+            new THREE.Vector3(0, 0, 0),
+            arrowLength * 0.5,
+            0x666666,
+            arrowHeadLength * 0.5,
+            arrowHeadWidth * 0.5
+        );
+        compassGroup.add(westArrow);
+        
+        // Position compass at a visible location (near the grid but elevated)
+        compassGroup.position.set(-30, 0.5, -30);
+        
+        this.scene.add(compassGroup);
+        
+        // Add text labels using sprites
+        this.addCompassLabel('N', -30, 1, -30 + arrowLength + 0.5, 0xff4444);
+        this.addCompassLabel('E', -30 + arrowLength + 0.5, 1, -30, 0x4444ff);
+    }
+    
+    /**
+     * Add a text label for compass directions
+     */
+    addCompassLabel(text, x, y, z, color) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 128;
+        canvas.height = 128;
+        
+        context.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+        context.font = 'bold 80px Arial';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(text, 64, 64);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(material);
+        sprite.position.set(x, y, z);
+        sprite.scale.set(1.5, 1.5, 1);
+        
+        this.scene.add(sprite);
     }
 
     /**
@@ -1220,15 +1312,21 @@ class DebugView3D {
 
                 const panSpeed = 0.03;
                 
-                // Get camera right and up vectors
+                // Get camera right and up vectors in screen space
+                const forward = new THREE.Vector3();
                 const right = new THREE.Vector3();
                 const up = new THREE.Vector3();
                 
-                this.camera.getWorldDirection(right);
-                right.cross(this.camera.up).normalize();
-                up.copy(this.camera.up).normalize();
+                // Get the direction the camera is looking
+                this.camera.getWorldDirection(forward);
                 
-                // Pan both camera and target
+                // Right = forward × world up
+                right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+                
+                // Up = right × forward (screen-space up, perpendicular to view)
+                up.crossVectors(right, forward).normalize();
+                
+                // Pan both camera and target in screen space
                 const panX = right.clone().multiplyScalar(-deltaX * panSpeed);
                 const panY = up.clone().multiplyScalar(deltaY * panSpeed);
                 
