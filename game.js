@@ -81,11 +81,6 @@ class Game {
                 }
             }
         });
-
-        // Handle debug button
-        document.getElementById('debugBtn').addEventListener('click', () => {
-            window.open('debug.html', '_blank');
-        });
     }
 
     /**
@@ -445,6 +440,11 @@ class Game {
 
             case 'tips':
                 this.toggleTips();
+                break;
+
+            case 'debug':
+                window.open('debug.html', '_blank');
+                this.addOutput("Opening debug view in a new window...", "normal");
                 break;
 
             default:

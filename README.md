@@ -46,21 +46,58 @@ text-adventure/
 2. **Your Mission**: Survive the night and escape via the roof!
 
 ### Commands:
-- **Movement**: `north`, `south`, `east`, `west`, `up`, `down` (or `n`, `s`, `e`, `w`)
+- **Movement**: `north`, `south`, `east`, `west`, `up`, `down` (or `n`, `s`, `e`, `w`, `u`, `d`)
 - **Items**: `take [item]`, `drop [item]`, `use [item]`, `examine [item]`
-- **Info**: `inventory` (or `i`), `look` (or `l`), `stats`, `exits`, `help`
-- **Special**: `escape` (when on the roof)
+- **Info**: `inventory` (or `i`), `look` (or `l`), `stats`, `exits`, `help`, `tips`
+- **Special**: `escape` (when on the roof), `remove fuse` (to de-power building)
+- **Debug**: `debug` (opens visualization in new window)
 
 ### Puzzle Solution (Spoilers!):
-1. 🔦 Take the **flashlight** and **keycard** from Security Office
-2. 🔑 Go to Server Room and find the **basement-key**
-3. ☣️ Navigate to Claims Department (DANGEROUS - toxic fumes!)
-4. 🚪 **USE the basement-key** in Claims to unlock the basement door
-5. ⚡ Go DOWN to the basement (DANGEROUS - electrified water!)
-6. 🔧 Take the **fuse** from the basement
-7. 💡 **USE the fuse** in the basement to restore power (clears toxins!)
-8. 🏢 Return to Lobby and go UP (elevator now works!)
-9. 🪜 On the Roof, type **ESCAPE** to climb down and WIN!
+
+<details>
+<summary>Click to reveal complete walkthrough</summary>
+
+#### Main Path:
+1. 🔦 **Security Office** (start): Take **flashlight**, **keycard**, and **coffee**
+2. 🍕 **Break Room**: Get **basement-key**, **energy drink**, and **first aid**
+3. 🧪 **Supply Closet**: Get the **fuse** (critical!)
+4. ☣️ **Claims Department** (DANGEROUS - toxic fumes!): Get **first aid**
+5. 🚪 In Claims, **USE basement-key** to unlock the basement door
+6. ⚡ **Basement**: Go DOWN to explore the basement area
+7. 🌊 **Sub-basement**: Get the **elevator-key** (water is safe initially)
+8. 💡 **Server Room**: **USE fuse** to restore power (clears Claims & Cafeteria toxins!)
+9. ⚠️ **WARNING**: The sub-basement water is now ELECTRIFIED - don't go back!
+10. 🏢 **Lobby**: **USE elevator-key** to activate the elevator
+11. 🆙 Go UP to the **Roof**
+12. 🪜 Type **ESCAPE** to climb down the fire escape and WIN!
+
+#### Secret Path (Optional):
+- 🔧 **Garage**: Get **crowbar**
+- � **Storage Room**: **USE crowbar** to open the locked cabinet
+- 🔍 **EXAMINE cabinet** (or **EXAMINE wall**) to discover the secret tunnel!
+- 🚇 **Maintenance Tunnel**: Secret passage to bypass the basement-key requirement
+- This tunnel leads directly to the basement area
+
+#### Important Items:
+- **Fuse** (Supply Closet) → Restores power in Server Room
+- **Basement Key** (Break Room) → Unlocks Claims → Basement door
+- **Elevator Key** (Sub-basement) → Activates elevator in Lobby
+- **Crowbar** (Garage) → Opens storage cabinet (optional secret path)
+
+#### Power Puzzle:
+- ⚡ Power OFF: Claims dangerous, Cafeteria dangerous, Sub-basement SAFE
+- ⚡ Power ON: Claims safe, Cafeteria safe, Sub-basement DANGEROUS (electrified water!)
+- You can REMOVE the fuse from the Server Room panel to toggle power
+
+#### Dangerous Rooms:
+- Claims (toxic fumes) - safe after power restored
+- Cafeteria (toxic mold) - safe after power restored  
+- Data Center (fire) - use **fire extinguisher** to clear
+- Mechanical Room (steam) - use **wrench** to fix
+- Research Lab (biohazard) - requires **gas mask** or **hazmat suit**
+- Sub-basement (electrified water) - ONLY when power is ON
+
+</details>
 
 ### Tips:
 - ❤️ Dangerous rooms drain health - don't stay too long!
@@ -68,7 +105,7 @@ text-adventure/
 - 🩹 Use medkits to heal in emergencies
 - 📊 Watch your health/energy bars at the top
 
-3. Click the "🐛 DEBUG VIEW" button to see the graph visualization
+3. Type **debug** to open the graph visualization (hidden feature!)
 
 ## 🐛 Debug Features
 
@@ -110,14 +147,16 @@ newRoom
 graph.addRoom(newRoom);
 ```
 
-## 🎨 Progressive Insurance Theme
+## 🎨 Dark Survival Theme
 
 The game features:
-- Flo the Progressive spokesperson
-- Name Your Price Tool
-- Claims processing
-- Marketing campaigns
-- Corporate setting
+- 23 interconnected rooms in a dark office building
+- Survival mechanics (health and energy management)
+- Power puzzle system with reversible mechanics
+- Secret passages and optional exploration paths
+- Multiple dangerous environments requiring strategy
+- Item-based puzzle solving
+- Multi-level structure (roof, ground, basement, sub-basement)
 
 ## 🚀 Technical Highlights
 
