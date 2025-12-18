@@ -113,7 +113,8 @@ class AdventureGraph {
 
         // Check for broken connections
         for (const room of this.rooms.values()) {
-            for (const [direction, destinationId] of Object.entries(room.exits)) {
+            for (const [direction, exit] of Object.entries(room.exits)) {
+                const destinationId = exit.destination;
                 if (!this.rooms.has(destinationId)) {
                     results.valid = false;
                     results.errors.push(
@@ -135,7 +136,8 @@ class AdventureGraph {
             const room = this.getRoom(roomId);
             
             if (room) {
-                for (const destId of Object.values(room.exits)) {
+                for (const exit of Object.values(room.exits)) {
+                    const destId = exit.destination;
                     if (!reachable.has(destId)) {
                         queue.push(destId);
                     }
@@ -240,10 +242,10 @@ class AdventureGraph {
                 exitCount: room.getAvailableDirections().length
             });
             
-            for (const [direction, destinationId] of Object.entries(room.exits)) {
+            for (const [direction, exit] of Object.entries(room.exits)) {
                 edges.push({
                     from: room.id,
-                    to: destinationId,
+                    to: exit.destination,
                     label: direction
                 });
             }

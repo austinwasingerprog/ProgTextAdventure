@@ -13,7 +13,7 @@ class Room {
         this.id = id;
         this.title = title;
         this.description = description;
-        this.exits = {}; // Direction -> Room ID mapping
+        this.exits = {}; // Direction -> {destination, locked, unlockCondition} mapping
         this.items = []; // Items in this room
         this.visited = false;
         this.isDangerous = false; // Drains health over time
@@ -24,11 +24,29 @@ class Room {
      * Add an exit from this room to another room
      * @param {string} direction - Direction (north, south, east, west, etc.)
      * @param {string} destinationId - ID of the destination room
+     * @param {boolean} locked - Whether the exit is locked
+     * @param {string} unlockCondition - Game state flag to check for unlocking
      * @returns {Room} - Returns this for method chaining
      */
-    addExit(direction, destinationId) {
-        this.exits[direction.toLowerCase()] = destinationId;
+    addExit(direction, destinationId, locked = false, unlockCondition = null) {
+        this.exits[direction.toLowerCase()] = {
+            destination: destinationId,
+            locked: locked,
+            unlockCondition: unlockCondition
+        };
         return this; // Enable chaining
+    }
+    
+    /**
+     * Unlock an exit
+     * @param {string} direction - Direction to unlock
+     * @returns {Room} - Returns this for method chaining
+     */
+    unlockExit(direction) {
+        if (this.exits[direction.toLowerCase()]) {
+            this.exits[direction.toLowerCase()].locked = false;
+        }
+        return this;
     }
 
     /**
@@ -86,27 +104,55 @@ class Room {
     /**
      * Get the destination room ID for a given direction
      * @param {string} direction - Direction to check
-     * @returns {string|null} - Destination room ID or null if no exit
+     * @param {object} gameState - Current game state to check unlock conditions
+     * @returns {string|null} - Destination room ID or null if no exit or locked
      */
-    getExit(direction) {
-        return this.exits[direction.toLowerCase()] || null;
+    getExit(direction, gameState = null) {
+        const exit = this.exits[direction.toLowerCase()];
+        if (!exit) return null;
+        
+        if (exit.locked) {
+            if (!gameState || !exit.unlockCondition || !gameState[exit.unlockCondition]) {
+                return null;
+            }
+        }
+        
+        return exit.destination;
     }
 
     /**
-     * Get all available exits from this room
+     * Get all available exits from this room (including locked ones)
+     * @param {object} gameState - Current game state to check unlock conditions
+     * @param {boolean} includeLockedExits - Whether to include locked exits
      * @returns {string[]} - Array of available directions
      */
-    getAvailableDirections() {
-        return Object.keys(this.exits);
+    getAvailableDirections(gameState = null, includeLockedExits = false) {
+        return Object.keys(this.exits).filter(direction => {
+            if (!includeLockedExits) {
+                const exit = this.exits[direction];
+                if (exit.locked && (!gameState || !exit.unlockCondition || !gameState[exit.unlockCondition])) {
+                    return false;
+                }
+            }
+            return true;
+        });
     }
 
     /**
      * Check if a direction is valid from this room
      * @param {string} direction - Direction to check
-     * @returns {boolean} - True if the direction is valid
+     * @param {object} gameState - Current game state to check unlock conditions
+     * @returns {boolean} - True if the direction is valid and unlocked
      */
-    hasExit(direction) {
-        return direction.toLowerCase() in this.exits;
+    hasExit(direction, gameState = null) {
+        const exit = this.exits[direction.toLowerCase()];
+        if (!exit) return false;
+        
+        if (exit.locked && (!gameState || !exit.unlockCondition || !gameState[exit.unlockCondition])) {
+            return false;
+        }
+        
+        return true;
     }
 
     /**

@@ -256,27 +256,12 @@ class Game {
     }
 
     /**
-     * Get exits string including conditional exits
+     * Get exits string including unlocked conditional exits
      */
     getExitsString(room) {
-        const directions = room.getAvailableDirections();
-        const allDirections = [...directions];
+        const directions = room.getAvailableDirections(this.gameState);
         
-        // Add conditional exits that exist in game state
-        if (room.id === 'claims' && this.gameState.basementUnlocked && !allDirections.includes('down')) {
-            allDirections.push('down');
-        }
-        if (room.id === 'lobby' && this.gameState.powerRestored && !allDirections.includes('up')) {
-            allDirections.push('up');
-        }
-        if (room.id === 'executive-hall' && this.gameState.executiveUnlocked && !allDirections.includes('north')) {
-            allDirections.push('north');
-        }
-        if (room.id === 'lab-hall' && this.gameState.labUnlocked && !allDirections.includes('east')) {
-            allDirections.push('east');
-        }
-        
-        if (allDirections.length === 0) {
+        if (directions.length === 0) {
             return "No obvious exits.";
         }
         return `Exits: ${allDirections.join(', ')}`;
@@ -453,36 +438,25 @@ class Game {
      * Move the player in a direction
      */
     movePlayer(direction) {
-        // Check for special locked/conditional exits
-        if (direction === 'down' && this.currentRoom.id === 'claims') {
-            if (!this.gameState.basementUnlocked) {
-                this.addOutput("The basement door is locked. You need a key.", "error");
-                return;
+        const destinationId = this.currentRoom.getExit(direction, this.gameState);
+        
+        if (!destinationId) {
+            const exit = this.currentRoom.exits[direction.toLowerCase()];
+            if (exit && exit.locked) {
+                const messages = {
+                    'basementUnlocked': "The basement door is locked. You need a key.",
+                    'powerRestored': "The elevator has no power. You need to restore electricity first.",
+                    'executiveUnlocked': "The boardroom door is locked. You need an executive access card.",
+                    'labUnlocked': "The research lab is sealed. You need a lab key."
+                };
+                this.addOutput(messages[exit.unlockCondition] || "This exit is locked.", "error");
+            } else {
+                this.addOutput(`You can't go ${direction} from here.`, "error");
             }
+            return;
         }
         
-        if (direction === 'up' && this.currentRoom.id === 'lobby') {
-            if (!this.gameState.powerRestored) {
-                this.addOutput("The elevator has no power. You need to restore electricity first.", "error");
-                return;
-            }
-        }
-
-        if (direction === 'north' && this.currentRoom.id === 'executive-hall') {
-            if (!this.gameState.executiveUnlocked) {
-                this.addOutput("The boardroom door is locked. You need an executive access card.", "error");
-                return;
-            }
-        }
-
-        if (direction === 'east' && this.currentRoom.id === 'lab-hall') {
-            if (!this.gameState.labUnlocked) {
-                this.addOutput("The research lab is sealed. You need a lab key.", "error");
-                return;
-            }
-        }
-        
-        const nextRoom = this.graph.navigate(this.currentRoom.id, direction);
+        const nextRoom = this.graph.getRoom(destinationId);
         
         if (nextRoom) {
             this.addOutput(`You head ${direction}...`, "normal");

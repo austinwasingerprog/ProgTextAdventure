@@ -58,13 +58,6 @@ function initializeGame() {
     ).setUsable((game) => {
         if (game.currentRoom.id === 'claims' && !game.gameState.basementUnlocked) {
             game.gameState.basementUnlocked = true;
-            
-            // Dynamically add the basement exit
-            const claimsRoom = game.graph.getRoom('claims');
-            if (claimsRoom && !claimsRoom.hasExit('down')) {
-                claimsRoom.addExit('down', 'basement');
-            }
-            
             game.addOutput("✅ You unlock the basement door with the rusty key. You hear it creak open below.", "success");
             game.addOutput("A dark stairway leads DOWN to the basement.", "normal");
         } else if (game.gameState.basementUnlocked) {
@@ -178,10 +171,6 @@ function initializeGame() {
     ).setUsable((game) => {
         if (game.currentRoom.id === 'executive-hall' && !game.gameState.executiveUnlocked) {
             game.gameState.executiveUnlocked = true;
-            const hallRoom = game.graph.getRoom('executive-hall');
-            if (hallRoom && !hallRoom.hasExit('north')) {
-                hallRoom.addExit('north', 'boardroom');
-            }
             game.addOutput("🔓 The executive access card unlocks the boardroom. The heavy door slides open.", "success");
         } else if (game.gameState.executiveUnlocked) {
             game.addOutput("The boardroom is already unlocked.", "normal");
@@ -251,10 +240,6 @@ function initializeGame() {
     ).setUsable((game) => {
         if (game.currentRoom.id === 'lab-hall' && !game.gameState.labUnlocked) {
             game.gameState.labUnlocked = true;
-            const labHallRoom = game.graph.getRoom('lab-hall');
-            if (labHallRoom && !labHallRoom.hasExit('east')) {
-                labHallRoom.addExit('east', 'research-lab');
-            }
             game.addOutput("🔬 The lab key opens the research lab. Warning lights flash inside.", "success");
         } else if (game.gameState.labUnlocked) {
             game.addOutput("The research lab is already open.", "normal");
@@ -544,15 +529,15 @@ function initializeGame() {
         .addExit("south", "security")
         .addExit("east", "claims")
         .addExit("west", "breakroom")
-        .addExit("north", "cafeteria");
-        // UP exit to roof added dynamically when power is restored
+        .addExit("north", "cafeteria")
+        .addExit("up", "roof", true, "powerRestored");
 
     claims
         .addExit("west", "lobby")
         .addExit("south", "servers")
         .addExit("east", "it-office")
-        .addExit("north", "executive-hall");
-        // DOWN exit to basement added dynamically when unlocked
+        .addExit("north", "executive-hall")
+        .addExit("down", "basement", true, "basementUnlocked");
 
     servers
         .addExit("west", "security")
@@ -571,12 +556,12 @@ function initializeGame() {
         .addExit("south", "breakroom");
 
     executive
-        .addExit("north", "executive-hall");
+        .addExit("west", "executive-hall");
 
     executiveHall
-        .addExit("south", "executive")
-        .addExit("east", "claims");
-        // NORTH exit to boardroom added dynamically when unlocked
+        .addExit("east", "executive")
+        .addExit("south", "claims")
+        .addExit("north", "boardroom", true, "executiveUnlocked");
 
     boardroom
         .addExit("south", "executive-hall");
@@ -586,8 +571,8 @@ function initializeGame() {
         .addExit("east", "lab-hall");
 
     labHall
-        .addExit("west", "it-office");
-        // EAST exit to research-lab added dynamically when unlocked
+        .addExit("west", "it-office")
+        .addExit("east", "research-lab", true, "labUnlocked");
 
     researchLab
         .addExit("west", "lab-hall");
