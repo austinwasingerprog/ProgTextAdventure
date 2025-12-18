@@ -397,7 +397,6 @@ function initializeGame() {
         "A cluttered storage room filled with old equipment and supplies. Metal shelving units " +
         "line the walls. A locked cabinet in the corner looks promising. You'll need something to pry it open."
     );
-    storage.addItem(crowbar);
     storage.addItem(painkiller);
 
     // Room 12: Executive Hallway - Safe

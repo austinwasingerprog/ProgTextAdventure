@@ -24,6 +24,7 @@ class Game {
         this.turns = 0;
         this.isDead = false;
         this.hasWon = false;
+        this.tipsEnabled = false;  // Tips are off by default
         this.gameState = {
             basementUnlocked: false,
             powerRestored: false,
@@ -271,6 +272,8 @@ class Game {
      * Show special actions available in current room
      */
     showAvailableActions(room) {
+        if (!this.tipsEnabled) return;  // Don't show tips if disabled
+        
         const actions = [];
         
         // Check for usable items in inventory that work here
@@ -353,6 +356,18 @@ class Game {
     }
 
     /**
+     * Toggle tips on/off
+     */
+    toggleTips() {
+        this.tipsEnabled = !this.tipsEnabled;
+        if (this.tipsEnabled) {
+            this.addOutput("✅ Tips enabled! You will now see helpful hints about using items.", "success");
+        } else {
+            this.addOutput("🔇 Tips disabled. You're on your own!", "normal");
+        }
+    }
+
+    /**
      * Process a user command
      */
     processCommand(command) {
@@ -424,6 +439,10 @@ class Game {
 
             case 'exits':
                 this.addOutput(this.getExitsString(this.currentRoom), "exits");
+                break;
+
+            case 'tips':
+                this.toggleTips();
                 break;
 
             default:
@@ -687,6 +706,7 @@ class Game {
         this.addOutput("Movement: north (n), south (s), east (e), west (w), up (u), down (d)", "normal");
         this.addOutput("Items: take [item], drop [item], use [item], examine [item]", "normal");
         this.addOutput("Info: inventory (i), look (l), stats, exits, help (h)", "normal");
+        this.addOutput("Settings: tips (toggle helpful hints)", "normal");
         this.addOutput("Special: escape (when on roof)", "normal");
         this.addOutput("");
         this.addOutput("💡 Tip: Use the basement-key at Claims to unlock the basement.", "exits");
