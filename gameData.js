@@ -550,7 +550,8 @@ function initializeGame() {
     claims
         .addExit("west", "lobby")
         .addExit("south", "servers")
-        .addExit("east", "itoffice");
+        .addExit("east", "it-office")
+        .addExit("north", "executive-hall");
         // DOWN exit to basement added dynamically when unlocked
 
     servers
@@ -564,8 +565,7 @@ function initializeGame() {
 
     breakroom
         .addExit("east", "lobby")
-        .addExit("north", "supply")
-        .addExit("west", "cafeteria");
+        .addExit("north", "supply");
 
     supply
         .addExit("south", "breakroom");
@@ -586,7 +586,7 @@ function initializeGame() {
         .addExit("east", "lab-hall");
 
     labHall
-        .addExit("west", "itoffice");
+        .addExit("west", "it-office");
         // EAST exit to research-lab added dynamically when unlocked
 
     researchLab
@@ -594,7 +594,6 @@ function initializeGame() {
 
     cafeteria
         .addExit("south", "lobby")
-        .addExit("east", "breakroom")
         .addExit("north", "garage");
 
     garage
@@ -606,8 +605,7 @@ function initializeGame() {
 
     archive
         .addExit("north", "security")
-        .addExit("east", "mechanical")
-        .addExit("west", "tunnel");
+        .addExit("east", "mechanical");
 
     mechanical
         .addExit("west", "archive")
@@ -615,8 +613,7 @@ function initializeGame() {
 
     tunnel
         .addExit("up", "garage")
-        .addExit("east", "archive")
-        .addExit("down", "subbasement");
+        .addExit("down", "sub-basement");
 
     subbasement
         .addExit("up", "tunnel");

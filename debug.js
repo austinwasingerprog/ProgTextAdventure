@@ -355,7 +355,6 @@ class DebugView {
                     x = centerX + gridSize * 4;
                     y = centerY + (unconnectedOffset * gridSize * 0.7) - (rooms.length * gridSize * 0.35);
                     level = 0;
-                    console.log(`Unpositioned room: ${room.id} at ${x}, ${y}`);
                 }
                 
                 positions.set(room.id, { x, y, radius: nodeRadius, level });
@@ -820,8 +819,8 @@ class DebugView3D {
         const visited = new Set();
         const queue = [{ room: startRoom, x: 0, y: 0, z: 0 }];
         
-        const spacing = 7; // Increased units between rooms for better spacing
-        const verticalSpacing = 8; // Increased units for vertical levels
+        const spacing = 7;
+        const verticalSpacing = 8;
 
         // Direction mappings (X = East-West, Z = North-South, Y = Up-Down)
         const directionOffsets = {
@@ -839,26 +838,7 @@ class DebugView3D {
             if (visited.has(room.id)) continue;
             visited.add(room.id);
 
-            // Check for collision with existing nodes
-            let finalX = x;
-            let finalY = y;
-            let finalZ = z;
-            
-            for (const [existingId, existingPos] of this.nodePositions.entries()) {
-                const distance = Math.sqrt(
-                    Math.pow(finalX - existingPos.x, 2) + 
-                    Math.pow(finalY - existingPos.y, 2) + 
-                    Math.pow(finalZ - existingPos.z, 2)
-                );
-                
-                // If too close, offset slightly
-                if (distance < spacing * 0.8) {
-                    finalX += spacing * 0.3;
-                    finalZ += spacing * 0.3;
-                }
-            }
-
-            this.nodePositions.set(room.id, { x: finalX, y: finalY, z: finalZ, room });
+            this.nodePositions.set(room.id, { x, y, z, room });
 
             // Queue adjacent rooms
             for (const [direction, targetId] of Object.entries(room.exits)) {
@@ -869,9 +849,9 @@ class DebugView3D {
                         if (targetRoom) {
                             queue.push({
                                 room: targetRoom,
-                                x: finalX + offset.x,
-                                y: finalY + offset.y,
-                                z: finalZ + offset.z
+                                x: x + offset.x,
+                                y: y + offset.y,
+                                z: z + offset.z
                             });
                         }
                     }
@@ -879,14 +859,12 @@ class DebugView3D {
             }
         }
 
-        // Handle any unconnected rooms (like roof, basement, freedom before dynamic connections)
+        // Handle any unconnected rooms
         for (const room of rooms) {
             if (!this.nodePositions.has(room.id)) {
                 let x, y, z;
                 
-                // Special positioning for known conditional rooms
                 if (room.id === 'roof') {
-                    // Position roof directly above lobby (same X,Z)
                     const lobbyPos = this.nodePositions.get('lobby');
                     if (lobbyPos) {
                         x = lobbyPos.x;
@@ -898,7 +876,6 @@ class DebugView3D {
                         z = 0;
                     }
                 } else if (room.id === 'basement') {
-                    // Position basement directly below claims (same X,Z)
                     const claimsPos = this.nodePositions.get('claims');
                     if (claimsPos) {
                         x = claimsPos.x;
@@ -910,7 +887,6 @@ class DebugView3D {
                         z = 0;
                     }
                 } else if (room.id === 'boardroom') {
-                    // Position boardroom north of executive-hall (conditional connection)
                     const hallPos = this.nodePositions.get('executive-hall');
                     if (hallPos) {
                         x = hallPos.x;
@@ -922,7 +898,6 @@ class DebugView3D {
                         z = -spacing * 2;
                     }
                 } else if (room.id === 'research-lab') {
-                    // Position research-lab east of lab-hall (conditional connection)
                     const labHallPos = this.nodePositions.get('lab-hall');
                     if (labHallPos) {
                         x = labHallPos.x + spacing;
@@ -934,7 +909,6 @@ class DebugView3D {
                         z = spacing * 2;
                     }
                 } else if (room.id === 'freedom') {
-                    // Position freedom room next to roof (special win state)
                     const roofPos = this.nodePositions.get('roof');
                     if (roofPos) {
                         x = roofPos.x + spacing * 1.5;
@@ -946,16 +920,22 @@ class DebugView3D {
                         z = 0;
                     }
                 } else {
-                    // Place other unconnected rooms off to the side
+                    // Place unconnected rooms far to the side
                     const unconnectedIndex = Array.from(this.nodePositions.keys()).length;
-                    x = spacing * 5;
+                    x = spacing * 6;
                     y = 0;
-                    z = (unconnectedIndex % 5) * spacing * 1.5 - spacing * 2;
-                    console.log(`3D: Unpositioned room: ${room.id} at (${x}, ${y}, ${z})`);
+                    z = (unconnectedIndex % 5) * spacing * 2;
+                    console.warn(`Unpositioned room: ${room.id} placed at (${x}, ${y}, ${z})`);
                 }
                 
                 this.nodePositions.set(room.id, { x, y, z, room });
             }
+        }
+
+        // Debug: Log all positions to verify
+        console.log("=== 3D Room Positions ===");
+        for (const [roomId, pos] of this.nodePositions.entries()) {
+            console.log(`${roomId}: (${pos.x}, ${pos.y}, ${pos.z}) - Level: ${pos.y > 0 ? 'Upper' : pos.y < 0 ? 'Lower' : 'Ground'}`);
         }
     }
 
@@ -1049,6 +1029,8 @@ class DebugView3D {
     createConnections() {
         const processed = new Set();
 
+        console.log("=== Creating 3D Connections ===");
+        
         for (const [roomId, pos] of this.nodePositions.entries()) {
             const room = pos.room;
 
@@ -1058,7 +1040,12 @@ class DebugView3D {
                 processed.add(connectionKey);
 
                 const targetPos = this.nodePositions.get(targetId);
-                if (!targetPos) continue;
+                if (!targetPos) {
+                    console.warn(`Missing position for target room: ${targetId}`);
+                    continue;
+                }
+
+                console.log(`Drawing: ${roomId} --${direction}--> ${targetId}`);
 
                 // Determine line color
                 const isVertical = direction === 'up' || direction === 'down';
@@ -1073,7 +1060,7 @@ class DebugView3D {
                 const material = new THREE.LineBasicMaterial({ 
                     color: color,
                     linewidth: 2,
-                    opacity: 0.6,
+                    opacity: 0.8,
                     transparent: true
                 });
                 const line = new THREE.Line(geometry, material);
@@ -1088,14 +1075,16 @@ class DebugView3D {
                     )
                     .normalize();
                 
+                const distance = Math.sqrt(
+                    Math.pow(targetPos.x - pos.x, 2) +
+                    Math.pow(targetPos.y - pos.y, 2) +
+                    Math.pow(targetPos.z - pos.z, 2)
+                );
+                
                 const arrowHelper = new THREE.ArrowHelper(
                     dir,
                     new THREE.Vector3(pos.x, pos.y, pos.z),
-                    Math.sqrt(
-                        Math.pow(targetPos.x - pos.x, 2) +
-                        Math.pow(targetPos.y - pos.y, 2) +
-                        Math.pow(targetPos.z - pos.z, 2)
-                    ),
+                    distance,
                     color,
                     0.5,
                     0.3
