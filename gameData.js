@@ -275,6 +275,7 @@ function initializeGame() {
             const storageRoom = game.graph.getRoom('storage');
             if (storageRoom) {
                 storageRoom.addItem(hazmat);
+                storageRoom.addItem(wrench);
                 storageRoom.addItem(adrenaline);
             }
         } else {
@@ -388,7 +389,6 @@ function initializeGame() {
         "Stay too long and the heat exhaustion will get you."
     );
     mechanical.setDangerous("💨 Steam vents scald you! The heat is unbearable!");
-    mechanical.addItem(wrench);
 
     // Room 11: Storage Room - Safe, puzzle room
     const storage = new Room(
@@ -477,7 +477,6 @@ function initializeGame() {
         "Water drips constantly. It's disorienting down here - you can barely tell which way is which. " +
         "Your energy drains faster in this oppressive space."
     );
-    tunnel.addItem(batteries);
 
     // Room 20: Sub-basement - VERY DANGEROUS
     const subbasement = new Room(
@@ -489,6 +488,8 @@ function initializeGame() {
     );
     subbasement.setDangerous("⚡❄️ The electrified ice-cold water is deadly!");
     subbasement.addItem(accesscard);
+    subbasement.addItem(fuse);
+
 
     // Basement - DANGEROUS and has power solution
     const basement = new Room(
@@ -499,7 +500,6 @@ function initializeGame() {
         "Water drips from pipes overhead. Each step sends ripples through the dark water."
     );
     basement.setDangerous("⚡ The water is electrified! You're being shocked!");
-    basement.addItem(fuse);
 
     // Roof Access - Escape route
     const roof = new Room(
