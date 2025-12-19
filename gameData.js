@@ -247,6 +247,21 @@ function initializeGame() {
         game.addOutput("You inject the adrenaline! Your heart races. You feel unstoppable!", "success");
     });
 
+    const fullmap = new Item(
+        'full-map',
+        'Building Blueprint',
+        'A complete architectural blueprint of the entire building. This reveals all rooms on your map!',
+        'tool'
+    ).setUsable((game) => {
+        if (!game.gameState.hasFullMap) {
+            game.gameState.hasFullMap = true;
+            game.addOutput("📋 You study the blueprint carefully. The entire building layout is now revealed!", "success");
+            game.addOutput("💡 Type 'map' to see all rooms - even ones you haven't visited yet!", "exits");
+        } else {
+            game.addOutput("You already have the building layout memorized.", "normal");
+        }
+    });
+
     const labkey = new Item(
         'lab-key',
         'Research Lab Key',
@@ -512,10 +527,11 @@ function initializeGame() {
         "Research Lab - BIOHAZARD",
         "WARNING! Chemical spills everywhere. Broken containment units. Whatever they were researching " +
         "has been released. The air is thick with an unidentifiable mist. Extremely dangerous! " +
+        "A filing cabinet stands open with documents scattered about. " +
         "WEST is the only exit, back to the hallway."
     );
     researchLab.setDangerous("☣️ Toxic chemicals are burning your skin and lungs!");
-    researchLab.addItem(adrenaline);
+    researchLab.addItem(fullmap);
     researchLab.addItem(coffee);
 
     // Room 17: Cafeteria - DANGEROUS without power, safe after power restored

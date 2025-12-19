@@ -39,7 +39,9 @@ class Game {
             storageOpened: false,
             elevatorUnlocked: false,
             fuseInstalled: false,
-            elevatorAccess: false  // Requires BOTH power AND elevator key
+            elevatorAccess: false,  // Requires BOTH power AND elevator key
+            hasFullMap: false,  // Set to true when player uses building blueprint
+            godMode: false  // Dev cheat for invincibility
         };
     }
 
@@ -114,8 +116,13 @@ class Game {
                     isProtected = true;
                 }
                 
+                // Research lab does EXTREME damage
+                if (this.currentRoom.id === 'research-lab') {
+                    damage = 15; // Triple damage!
+                }
+                
                 // Sub-basement does MASSIVE damage
-                if (this.currentRoom.id === 'subbasement') {
+                if (this.currentRoom.id === 'sub-basement') {
                     damage = 10; // Double damage!
                 }
                 
@@ -508,11 +515,88 @@ class Game {
                 this.addOutput("Opening debug view in a new window...", "normal");
                 break;
 
+            case 'cheat':
+                this.processCheatCode(target);
+                break;
+
             default:
                 this.addOutput(
                     `I don't understand "${command}". Type 'help' for commands.`,
                     "error"
                 );
+        }
+    }
+
+    /**
+     * Process cheat codes (dev commands)
+     */
+    processCheatCode(code) {
+        if (!code) {
+            this.addOutput("💻 DEV CHEAT CODES:", "room-title");
+            this.addOutput("  cheat fullmap - Unlock building blueprint", "normal");
+            this.addOutput("  cheat god - Toggle god mode (invincibility)", "normal");
+            this.addOutput("  cheat heal - Full health and energy", "normal");
+            this.addOutput("  cheat keys - Get all keys", "normal");
+            this.addOutput("  cheat reveal - Mark all rooms as visited", "normal");
+            return;
+        }
+
+        switch(code.toLowerCase()) {
+            case 'fullmap':
+                this.gameState.hasFullMap = true;
+                this.addOutput("🗺️ DEV: Building blueprint unlocked! Type 'map' to see all rooms.", "success");
+                break;
+
+            case 'god':
+                this.gameState.godMode = !this.gameState.godMode;
+                if (this.gameState.godMode) {
+                    this.addOutput("⚡ DEV: God mode ENABLED - you are invincible!", "success");
+                } else {
+                    this.addOutput("💀 DEV: God mode DISABLED - you can die again.", "normal");
+                }
+                break;
+
+            case 'heal':
+                this.health = this.maxHealth;
+                this.energy = this.maxEnergy;
+                this.updateStats();
+                this.addOutput("💚 DEV: Health and energy fully restored!", "success");
+                break;
+
+            case 'keys':
+                const keyItems = [
+                    { id: 'basement-key', name: 'Basement Key' },
+                    { id: 'elevator-key', name: 'Elevator Access Card' },
+                    { id: 'access-card', name: 'Executive Access Card' },
+                    { id: 'lab-key', name: 'Research Lab Key' }
+                ];
+                
+                let keysAdded = 0;
+                for (const key of keyItems) {
+                    if (!this.inventory.some(item => item.id === key.id)) {
+                        // Create a simple key item (won't have use functionality, but that's ok for cheats)
+                        const keyItem = { id: key.id, name: key.name, type: 'key', description: 'Cheat item', canUse: false };
+                        this.inventory.push(keyItem);
+                        keysAdded++;
+                    }
+                }
+                
+                if (keysAdded > 0) {
+                    this.addOutput(`🔑 DEV: Added ${keysAdded} key(s) to inventory!`, "success");
+                } else {
+                    this.addOutput("🔑 DEV: You already have all keys!", "normal");
+                }
+                this.updateStats();
+                break;
+
+            case 'reveal':
+                const rooms = this.graph.getAllRooms();
+                rooms.forEach(room => room.visited = true);
+                this.addOutput("👁️ DEV: All rooms marked as visited!", "success");
+                break;
+
+            default:
+                this.addOutput(`Unknown cheat code: "${code}". Type 'cheat' for list.`, "error");
         }
     }
 
@@ -733,6 +817,11 @@ class Game {
      * Modify player health
      */
     modifyHealth(amount, silent = false) {
+        // God mode prevents damage
+        if (this.gameState.godMode && amount < 0) {
+            return;
+        }
+        
         this.health = Math.max(0, Math.min(this.maxHealth, this.health + amount));
         this.updateStats();
         
@@ -918,11 +1007,94 @@ class Game {
     }
 
     /**
-     * Display fog-of-war map showing only visited rooms
+     * Get room abbreviation for map display
+     */
+    getRoomAbbreviation(roomId) {
+        const abbreviations = {
+            'security': 'SEC',
+            'lobby': 'LOB',
+            'reception': 'REC',
+            'break-room': 'BRK',
+            'claims': 'CLM',
+            'servers': 'SRV',
+            'datacenter': 'DAT',
+            'basement': 'BST',
+            'sub-basement': 'SUB',
+            'itoffice': 'IT',
+            'executive-hall': 'EXE',
+            'boardroom': 'BRD',
+            'supply': 'SUP',
+            'mechanical': 'MEC',
+            'storage': 'STR',
+            'tunnel': 'TUN',
+            'archive': 'ARC',
+            'lab-hall': 'LHL',
+            'research-lab': 'LAB',
+            'cafeteria': 'CAF',
+            'garage': 'GAR',
+            'stairwell': 'STR',
+            'roof': 'ROF'
+        };
+        return abbreviations[roomId] || roomId.substring(0, 3).toUpperCase();
+    }
+
+    /**
+     * Get the floor number for a room
+     */
+    getRoomFloor(roomId) {
+        const floors = {
+            // Sub-basement (Floor -2)
+            'sub-basement': -2,
+            
+            // Basement (Floor -1)
+            'basement': -1,
+            'servers': -1,
+            'datacenter': -1,
+            'tunnel': -1,
+            
+            // Ground Floor (Floor 0)
+            'security': 0,
+            'lobby': 0,
+            'reception': 0,
+            'break-room': 0,
+            'claims': 0,
+            'itoffice': 0,
+            'executive-hall': 0,
+            'boardroom': 0,
+            'supply': 0,
+            'mechanical': 0,
+            'storage': 0,
+            'archive': 0,
+            'lab-hall': 0,
+            'research-lab': 0,
+            'cafeteria': 0,
+            'garage': 0,
+            'stairwell': 0,
+            
+            // Roof (Floor 1)
+            'roof': 1
+        };
+        return floors[roomId] !== undefined ? floors[roomId] : 0;
+    }
+
+    /**
+     * Display fog-of-war map showing visited rooms (or all rooms with full map)
      */
     displayMap() {
         this.addOutput("");
-        this.addOutput("🗺️  MAP - Visited Locations", "room-title");
+        const hasFullMap = this.gameState.hasFullMap;
+        const currentFloor = this.getRoomFloor(this.currentRoom.id);
+        
+        // Floor names for display
+        const floorNames = {
+            '-2': 'Sub-Basement',
+            '-1': 'Basement',
+            '0': 'Ground Floor',
+            '1': 'Roof'
+        };
+        
+        const floorName = floorNames[currentFloor.toString()] || `Floor ${currentFloor}`;
+        this.addOutput(hasFullMap ? `🗺️  BUILDING BLUEPRINT - ${floorName}` : `🗺️  MAP - ${floorName}`, "room-title");
         this.addOutput("", "normal");
         
         const canvas = document.createElement('canvas');
@@ -932,75 +1104,149 @@ class Game {
         canvas.style.margin = '10px auto';
         canvas.style.border = '2px solid #4ec9b0';
         canvas.style.backgroundColor = '#1e1e1e';
+        canvas.style.cursor = 'grab';
         
         const ctx = canvas.getContext('2d');
         
-        // Get all rooms and calculate positions
-        const rooms = this.graph.getAllRooms();
+        // Pan offset state
+        let panOffset = { x: 0, y: 0 };
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        
+        // Get all rooms and filter by current floor
+        const allRooms = this.graph.getAllRooms();
+        const rooms = allRooms.filter(room => this.getRoomFloor(room.id) === currentFloor);
         const positions = this.calculateRoomPositions(rooms);
         
-        // Draw connections first (behind rooms)
-        ctx.strokeStyle = '#4ec9b0';
-        ctx.lineWidth = 2;
-        
-        for (const room of rooms) {
-            if (!room.visited) continue;
+        // Render function that draws the map with current pan offset
+        const renderMap = () => {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            const pos = positions.get(room.id);
-            if (!pos) continue;
+            // Save context and apply pan offset
+            ctx.save();
+            ctx.translate(panOffset.x, panOffset.y);
             
-            for (const [direction, exit] of Object.entries(room.exits)) {
-                const destRoom = this.graph.getRoom(exit.destination);
-                if (!destRoom || !destRoom.visited) continue;
+            // Draw connections first (behind rooms)
+            for (const room of rooms) {
+                // Skip unvisited rooms unless we have the full map
+                if (!room.visited && !hasFullMap) continue;
                 
-                const destPos = positions.get(exit.destination);
-                if (!destPos) continue;
+                const pos = positions.get(room.id);
+                if (!pos) continue;
                 
-                // Draw connection line
-                ctx.beginPath();
-                ctx.moveTo(pos.x, pos.y);
-                ctx.lineTo(destPos.x, destPos.y);
-                ctx.stroke();
-            }
-        }
-        
-        // Draw rooms
-        const roomSize = 40;
-        const halfSize = roomSize / 2;
-        
-        for (const room of rooms) {
-            if (!room.visited) continue;
-            
-            const pos = positions.get(room.id);
-            if (!pos) continue;
-            
-            // Draw room square
-            if (room.id === this.currentRoom.id) {
-                // Current room - bright highlight
-                ctx.fillStyle = '#00ff00';
-                ctx.strokeStyle = '#ffffff';
-            } else if (room.id === this.graph.startRoomId) {
-                // Start room
-                ctx.fillStyle = '#ffd700';
-                ctx.strokeStyle = '#4ec9b0';
-            } else {
-                // Visited room
-                ctx.fillStyle = '#2d2d2d';
-                ctx.strokeStyle = '#4ec9b0';
+                for (const [direction, exit] of Object.entries(room.exits)) {
+                    const destRoom = this.graph.getRoom(exit.destination);
+                    if (!destRoom) continue;
+                    
+                    // Skip connections to unvisited rooms unless we have full map
+                    if (!destRoom.visited && !hasFullMap) continue;
+                    
+                    const destPos = positions.get(exit.destination);
+                    if (!destPos) continue;
+                    
+                    // Use different style for unvisited rooms
+                    if (room.visited && destRoom.visited) {
+                        ctx.strokeStyle = '#4ec9b0';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([]);
+                    } else {
+                        ctx.strokeStyle = '#666666';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([5, 5]);
+                    }
+                    
+                    // Draw connection line
+                    ctx.beginPath();
+                    ctx.moveTo(pos.x, pos.y);
+                    ctx.lineTo(destPos.x, destPos.y);
+                    ctx.stroke();
+                }
             }
             
-            ctx.lineWidth = 2;
-            ctx.fillRect(pos.x - halfSize, pos.y - halfSize, roomSize, roomSize);
-            ctx.strokeRect(pos.x - halfSize, pos.y - halfSize, roomSize, roomSize);
+            ctx.setLineDash([]); // Reset line dash
             
-            // Draw room initial
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 14px monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            const initial = room.title.charAt(0).toUpperCase();
-            ctx.fillText(initial, pos.x, pos.y);
-        }
+            // Draw rooms
+            const roomSize = 50;
+            const halfSize = roomSize / 2;
+            
+            for (const room of rooms) {
+                // Skip unvisited rooms unless we have the full map
+                if (!room.visited && !hasFullMap) continue;
+                
+                const pos = positions.get(room.id);
+                if (!pos) continue;
+                
+                // Draw room square
+                if (room.id === this.currentRoom.id) {
+                    // Current room - bright highlight
+                    ctx.fillStyle = '#00ff00';
+                    ctx.strokeStyle = '#ffffff';
+                } else if (room.id === this.graph.startRoomId) {
+                    // Start room
+                    ctx.fillStyle = '#ffd700';
+                    ctx.strokeStyle = '#4ec9b0';
+                } else if (!room.visited) {
+                    // Unvisited room (only visible with full map)
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.strokeStyle = '#555555';
+                } else {
+                    // Visited room
+                    ctx.fillStyle = '#2d2d2d';
+                    ctx.strokeStyle = '#4ec9b0';
+                }
+                
+                ctx.lineWidth = 2;
+                ctx.fillRect(pos.x - halfSize, pos.y - halfSize, roomSize, roomSize);
+                ctx.strokeRect(pos.x - halfSize, pos.y - halfSize, roomSize, roomSize);
+                
+                // Draw room abbreviation
+                ctx.fillStyle = room.visited ? '#ffffff' : '#777777';
+                ctx.font = 'bold 10px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const abbrev = this.getRoomAbbreviation(room.id);
+                ctx.fillText(abbrev, pos.x, pos.y);
+                
+                // Draw danger icon if room is currently dangerous
+                if (room.isDangerous) {
+                    ctx.font = '14px Arial';
+                    ctx.fillText('⚠️', pos.x + halfSize - 8, pos.y - halfSize + 8);
+                }
+            }
+            
+            ctx.restore();
+        };
+        
+        // Add mouse event listeners for panning
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            dragStart = { x: e.offsetX - panOffset.x, y: e.offsetY - panOffset.y };
+            canvas.style.cursor = 'grabbing';
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                panOffset.x = e.offsetX - dragStart.x;
+                panOffset.y = e.offsetY - dragStart.y;
+                renderMap();
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+        });
+        
+        // Initial render
+        renderMap();
         
         // Add canvas to output
         const outputLine = document.createElement('div');
@@ -1010,8 +1256,14 @@ class Game {
         
         // Add legend
         this.addOutput("", "normal");
-        this.addOutput("Legend: 🟩 Current Location | 🟨 Start | ⬛ Visited", "normal");
-        this.addOutput("Tip: Only rooms you've visited are shown on the map", "exits");
+        if (hasFullMap) {
+            this.addOutput("Legend: 🟩 Current | 🟨 Start | ⬛ Visited | ⬜ Unvisited | ⚠️ Dangerous", "normal");
+            this.addOutput("Full building layout revealed! Map shows current floor only.", "exits");
+        } else {
+            this.addOutput("Legend: 🟩 Current Location | 🟨 Start | ⬛ Visited | ⚠️ Dangerous", "normal");
+            this.addOutput("Tip: Find the building blueprint to reveal all rooms on this floor!", "exits");
+        }
+        this.addOutput("💡 Click and drag to pan the map", "exits");
         this.addOutput("", "normal");
         
         this.outputElement.scrollTop = this.outputElement.scrollHeight;
@@ -1029,11 +1281,10 @@ class Game {
         const startRoom = this.graph.getRoom(this.graph.startRoomId);
         if (!startRoom) return positions;
         
-        const centerX = 300;
-        const centerY = 200;
         const spacing = 80;
         
-        positions.set(startRoom.id, { x: centerX, y: centerY });
+        // Initial positioning - use 0,0 as origin (will recenter later)
+        positions.set(startRoom.id, { x: 0, y: 0 });
         visited.add(startRoom.id);
         queue.push(startRoom);
         
@@ -1069,6 +1320,23 @@ class Game {
                         queue.push(destRoom);
                     }
                 }
+            }
+        }
+        
+        // Now recenter the map on the current player's room
+        const currentRoomPos = positions.get(this.currentRoom.id);
+        if (currentRoomPos) {
+            const centerX = 300;
+            const centerY = 200;
+            const offsetX = centerX - currentRoomPos.x;
+            const offsetY = centerY - currentRoomPos.y;
+            
+            // Apply offset to all positions to center on current room
+            for (const [roomId, pos] of positions.entries()) {
+                positions.set(roomId, {
+                    x: pos.x + offsetX,
+                    y: pos.y + offsetY
+                });
             }
         }
         
