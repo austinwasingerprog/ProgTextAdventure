@@ -333,7 +333,9 @@ function initializeGame() {
         "security",
         "Security Office",
         "Your small security office. Monitors flicker with static. Papers are scattered " +
-        "everywhere. The emergency lights cast an eerie red glow. This is the only place that feels safe right now."
+        "everywhere. The emergency lights cast an eerie red glow. This is the only place that feels safe right now. " +
+        "To the NORTH, glass doors lead to the reception lobby. EAST, a sign reads 'SERVER ROOM'. " +
+        "SOUTH leads to the artwork archive. WEST, you see the storage room entrance."
     );
     security.addItem(flashlight);
     security.addItem(keycard);
@@ -346,7 +348,9 @@ function initializeGame() {
         "The once-bright lobby is now pitch black except for emergency exit signs. " +
         "Shadows dance on the walls. You hear distant sounds - footsteps? Something else? " +
         "The main entrance is locked from the outside. You'll need another way out. " +
-        "There's an elevator, but it appears to be without power."
+        "There's an elevator, but it appears to be without power. " +
+        "SOUTH leads back to security. EAST, you see the claims department. " +
+        "WEST leads to the employee break room. NORTH, you hear sounds from the cafeteria."
     );
     lobby.addItem(energydrink);
 
@@ -356,7 +360,9 @@ function initializeGame() {
         "Claims Department - Contaminated",
         "A chemical smell fills this room. Papers float through the air from a broken AC unit. " +
         "Your eyes water and your throat burns. Something is VERY wrong here. Don't stay long! " +
-        "A heavy metal door marked 'BASEMENT - ELECTRICAL' is locked tight."
+        "A heavy metal door marked 'BASEMENT - ELECTRICAL' is locked tight. " +
+        "WEST returns to the lobby. SOUTH leads to the server room. " +
+        "EAST, a sign indicates the IT department. NORTH is the executive hallway."
     );
     claims.setDangerous("💀 The toxic fumes are hurting you!");
     claims.addItem(firstaid);
@@ -367,7 +373,9 @@ function initializeGame() {
         "Server Room",
         "Rows of dark server racks hum quietly on backup power. The blue indicator lights " +
         "provide minimal illumination. It's cold in here - very cold. You can see your breath. " +
-        "The main breaker panel is mounted on the far wall, waiting for a replacement fuse."
+        "The main breaker panel is mounted on the far wall, waiting for a replacement fuse. " +
+        "WEST returns to security. NORTH leads to the claims department. " +
+        "EAST, you see warning lights from the data center."
     );
     servers.addItem(batteries);
 
@@ -377,7 +385,8 @@ function initializeGame() {
         "Data Center - ON FIRE",
         "Smoke billows from a bank of overheated servers! Small flames lick at the equipment. " +
         "The sprinkler system failed. The heat is intense and smoke fills your lungs. " +
-        "You need to put this out or get out fast!"
+        "You need to put this out or get out fast! " +
+        "WEST leads back to the server room. SOUTH, you hear the hiss of steam from the mechanical room."
     );
     datacenter.setDangerous("🔥 The smoke and heat are damaging you!");
     datacenter.addItem(extinguisher);
@@ -389,7 +398,8 @@ function initializeGame() {
         "Employee Break Room",
         "The break room is eerily quiet. Chairs are overturned. Someone left in a hurry. " +
         "The vending machine glass is cracked. A microwave door hangs open. " +
-        "There's an unsettling stillness here."
+        "There's an unsettling stillness here. " +
+        "EAST returns to the lobby. NORTH, you see a supply closet door."
     );
     breakroom.addItem(energydrink);
     breakroom.addItem(firstaid);
@@ -400,7 +410,8 @@ function initializeGame() {
         "supply",
         "Supply Closet",
         "A cramped supply closet filled with cleaning products, paper supplies, and safety equipment. " +
-        "The chemical smell is strong but not dangerous. Emergency supplies line the shelves."
+        "The chemical smell is strong but not dangerous. Emergency supplies line the shelves. " +
+        "SOUTH is the only exit, back to the break room."
     );
     supply.addItem(hazmat);
     supply.addItem(batteries);
@@ -412,7 +423,8 @@ function initializeGame() {
         "Executive Office",
         "An opulent corner office with leather furniture and mahogany desk. " +
         "Floor-to-ceiling windows overlook the city. A wall safe stands open - empty except for documents. " +
-        "Whoever was here left in a panic."
+        "Whoever was here left in a panic. " +
+        "WEST returns to the executive hallway."
     );
     executive.addItem(accesscard);
 
@@ -423,7 +435,8 @@ function initializeGame() {
         "A dimly lit archive room filled with framed artwork, sculptures, and display cases. " +
         "The company's art collection is stored here in a maze-like arrangement. The emergency lighting barely " +
         "penetrates the gloom between the tall display racks. You hear strange echoes. " +
-        "Energy drains faster in this disorienting space."
+        "Energy drains faster in this disorienting space. " +
+        "NORTH returns to security. EAST, you hear machinery from the mechanical room."
     );
     archive.addItem(wrench);
     archive.addItem(painkiller);
@@ -434,7 +447,8 @@ function initializeGame() {
         "Mechanical Room",
         "The building's HVAC and machinery room. Pipes rattle and hiss. Something is wrong with " +
         "the pressure system - steam vents periodically. The noise is deafening. " +
-        "Stay too long and the heat exhaustion will get you."
+        "Stay too long and the heat exhaustion will get you. " +
+        "WEST returns to the artwork archive. NORTH leads back to the data center."
     );
     mechanical.setDangerous("💨 Steam vents scald you! The heat is unbearable!");
 
@@ -443,7 +457,8 @@ function initializeGame() {
         "storage",
         "Storage Room",
         "A cluttered storage room filled with old equipment and supplies. Metal shelving units " +
-        "line the walls. A locked cabinet in the corner looks promising. You'll need something to pry it open."
+        "line the walls. A locked cabinet in the corner looks promising. You'll need something to pry it open. " +
+        "EAST returns to security."
     );
     storage.addItem(energydrink);
 
@@ -453,7 +468,8 @@ function initializeGame() {
         "Executive Hallway",
         "A luxurious hallway with dark wood paneling and expensive artwork. The doors are locked " +
         "except for one office. A biometric scanner guards the boardroom entrance to the north - " +
-        "you'll need the right access card."
+        "you'll need the right access card. " +
+        "EAST leads to an executive office. SOUTH returns to claims. NORTH is the locked boardroom."
     );
 
     // Room 13: Boardroom - Safe, important items (locked initially)
@@ -461,7 +477,8 @@ function initializeGame() {
         "boardroom",
         "Executive Boardroom",
         "An enormous conference room with a massive table. Floor-to-ceiling windows show the dark city. " +
-        "Someone left in a hurry - papers are scattered, chairs overturned. A safe stands open."
+        "Someone left in a hurry - papers are scattered, chairs overturned. A safe stands open. " +
+        "SOUTH is the only exit, back to the executive hallway."
     );
     boardroom.addItem(document);
     boardroom.addItem(roofkey);
@@ -473,7 +490,8 @@ function initializeGame() {
         "it-office",
         "IT Department",
         "Cubicles filled with computer equipment. Multiple monitors glow dimly on battery backup. " +
-        "The IT staff left tools and equipment everywhere. You might find something useful."
+        "The IT staff left tools and equipment everywhere. You might find something useful. " +
+        "WEST returns to claims. EAST, you see warning signs for the research lab hallway."
     );
     itoffice.addItem(batteries);
     itoffice.addItem(energydrink);
@@ -483,7 +501,8 @@ function initializeGame() {
         "lab-hall",
         "Research Lab Hallway",
         "A sterile white hallway. Warning signs are posted everywhere: 'BIOHAZARD', 'AUTHORIZED PERSONNEL ONLY'. " +
-        "The research lab door is sealed. You need the right key to access it."
+        "The research lab door is sealed. You need the right key to access it. " +
+        "WEST returns to the IT department. EAST is the locked research lab."
     );
     labHall.addItem(painkiller);
 
@@ -492,7 +511,8 @@ function initializeGame() {
         "research-lab",
         "Research Lab - BIOHAZARD",
         "WARNING! Chemical spills everywhere. Broken containment units. Whatever they were researching " +
-        "has been released. The air is thick with an unidentifiable mist. Extremely dangerous!"
+        "has been released. The air is thick with an unidentifiable mist. Extremely dangerous! " +
+        "WEST is the only exit, back to the hallway."
     );
     researchLab.setDangerous("☣️ Toxic chemicals are burning your skin and lungs!");
     researchLab.addItem(adrenaline);
@@ -504,7 +524,8 @@ function initializeGame() {
         "Employee Cafeteria",
         "A large cafeteria with dozens of tables. The kitchen door is ajar. Food is still on some tables - " +
         "whatever happened, it happened fast. The vending machines are accessible. " +
-        "The refrigeration units failed days ago - the smell of rot is overwhelming."
+        "The refrigeration units failed days ago - the smell of rot is overwhelming. " +
+        "SOUTH returns to the lobby. NORTH leads to the parking garage."
     );
     cafeteria.setDangerous("🦠 Toxic mold spores from spoiled food fill the air! You're choking!");
     cafeteria.addItem(energydrink);
@@ -517,7 +538,8 @@ function initializeGame() {
         "Underground Parking Garage",
         "A dark concrete parking garage. Most of the cars are gone. The few that remain are abandoned. " +
         "Fluorescent lights flicker overhead. Oil stains and tire marks everywhere. The exit ramp is blocked. " +
-        "A maintenance toolkit sits on a workbench near an abandoned security vehicle."
+        "A maintenance toolkit sits on a workbench near an abandoned security vehicle. " +
+        "SOUTH is the only exit, back to the cafeteria."
     );
     garage.addItem(crowbar);
     garage.addItem(batteries);
@@ -529,7 +551,8 @@ function initializeGame() {
         "A narrow maintenance tunnel with exposed pipes and electrical conduits. This secret passage appears to run " +
         "under the main building toward the basement area. The walls are damp and cold. Rust-stained water pools " +
         "on the concrete floor. You can hear machinery humming in the distance. This must be how maintenance workers " +
-        "accessed the lower levels without going through the main building."
+        "accessed the lower levels without going through the main building. " +
+        "UP returns to the storage room. EAST leads to the basement."
     );
     tunnel.addItem(firstaid);
 
@@ -539,7 +562,8 @@ function initializeGame() {
         "Basement - Electrical Room",
         "The basement electrical room has some ankle-deep water in places. Old electrical panels line the walls. " +
         "Most of the equipment down here is non-functional. A rusted metal ladder leads down to an even " +
-        "deeper level. You can hear the sound of dripping water echoing from below."
+        "deeper level. You can hear the sound of dripping water echoing from below. " +
+        "UP leads back to claims. WEST leads to the maintenance tunnel. DOWN takes you to the sub-basement."
     );
 
     // Room 20: Sub-basement - Accessible through basement, elevator key in water
@@ -549,7 +573,8 @@ function initializeGame() {
         "You descend into the deepest level of the building. This forgotten sub-basement is heavily flooded - " +
         "waist-deep ice-cold water fills the entire space. Old machinery and boilers loom in the darkness. " +
         "Through the murky water below, you can see what looks like an elevator access card that someone dropped. " +
-        "Damaged electrical wiring dangles from the ceiling everywhere - if power is restored, this water will become electrified!"
+        "Damaged electrical wiring dangles from the ceiling everywhere - if power is restored, this water will become electrified! " +
+        "UP is the only exit, back to the basement."
     );
     // NOT dangerous initially - water isn't electrified without power
     subbasement.addItem(elevatorkey);
@@ -560,7 +585,8 @@ function initializeGame() {
         "Roof Access",
         "Fresh air! You emerge onto the roof. The city lights twinkle in the distance. " +
         "You can see a fire escape ladder leading down to the street. Freedom is so close! " +
-        "Type 'ESCAPE' to climb down the fire escape and win!"
+        "Type 'ESCAPE' to climb down the fire escape and win! " +
+        "DOWN returns to the lobby elevator."
     );
     
     // Victory! (handled specially in game logic)

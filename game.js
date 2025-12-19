@@ -20,6 +20,10 @@ class Game {
         this.inventory = [];
         this.maxInventorySize = 10;
         
+        // Track last damage/energy messages to show on "look"
+        this.lastDamageMessage = null;
+        this.lastEnergyWarning = null;
+        
         // Game state
         this.turns = 0;
         this.isDead = false;
@@ -116,23 +120,26 @@ class Game {
                 }
                 
                 if (!isProtected) {
-                    this.modifyHealth(-damage);
+                    this.modifyHealth(-damage, true); // true = silent (no message spam)
                     if (this.health > 0) {
-                        this.addOutput(`⚠️ ${this.currentRoom.dangerMessage}`, "danger");
+                        this.lastDamageMessage = `⚠️ ${this.currentRoom.dangerMessage}`;
                     }
                 }
+            } else {
+                // Clear damage message when not in a dangerous room
+                this.lastDamageMessage = null;
             }
             
-            // Energy drain in maze-like areas
+            // Energy drain in maze-like areas (silent drain, warning shown on entry)
             if (this.currentRoom.id === 'archive' || this.currentRoom.id === 'tunnel') {
-                this.modifyEnergy(-2);
-                if (this.energy > 0 && this.energy <= 20) {
-                    this.addOutput("🌀 The disorienting space drains your energy...", "danger");
-                }
+                this.modifyEnergy(-2, true); // true = silent
                 if (this.energy <= 0) {
-                    this.addOutput("You collapse from exhaustion!", "error");
-                    this.modifyHealth(-15);
+                    this.lastEnergyWarning = "You collapse from exhaustion!";
+                    this.modifyHealth(-15, true); // Silent damage from exhaustion too
                 }
+            } else {
+                // Clear energy warning when not in a disorienting room
+                this.lastEnergyWarning = null;
             }
             
             // Natural energy recovery (slower)
@@ -140,7 +147,7 @@ class Game {
                 this.energy = Math.min(this.maxEnergy, this.energy + 1);
                 this.updateStats();
             }
-        }, 3000);
+        }, 2000);  // Reduced from 3000ms to 2000ms for faster energy drain
     }
 
     /**
@@ -194,6 +201,23 @@ class Game {
         
         // Show special actions available
         this.showAvailableActions(room);
+        
+        // Set and show danger messages immediately when in a dangerous room
+        if (this.currentRoom.isDangerous) {
+            this.lastDamageMessage = `⚠️ ${this.currentRoom.dangerMessage}`;
+            this.addOutput(this.lastDamageMessage, "danger");
+        }
+        
+        // Show energy warning if exhausted in disorienting spaces
+        if ((room.id === 'archive' || room.id === 'tunnel') && this.energy <= 0) {
+            this.lastEnergyWarning = "You collapse from exhaustion!";
+            this.addOutput(this.lastEnergyWarning, "error");
+        }
+        
+        // Warn about disorienting spaces
+        if (room.id === 'archive' || room.id === 'tunnel') {
+            this.addOutput("🌀 This space is disorienting - your energy drains faster here!", "danger");
+        }
         
         // Drain energy from moving (but not on first turn)
         if (this.turns > 1) {
@@ -708,27 +732,48 @@ class Game {
     /**
      * Modify player health
      */
-    modifyHealth(amount) {
+    modifyHealth(amount, silent = false) {
         this.health = Math.max(0, Math.min(this.maxHealth, this.health + amount));
         this.updateStats();
         
+        // Flash health bar on change
+        if (amount !== 0) {
+            const healthBar = document.getElementById('healthBar');
+            healthBar.parentElement.classList.add(amount < 0 ? 'stat-flash-damage' : 'stat-flash-heal');
+            setTimeout(() => {
+                healthBar.parentElement.classList.remove('stat-flash-damage', 'stat-flash-heal');
+            }, 500);
+        }
+        
         if (this.health <= 0 && !this.isDead) {
             this.die();
-        } else if (amount < 0) {
-            this.addOutput(`💔 You take ${-amount} damage! (${this.health}/${this.maxHealth} HP)`, "danger");
-        } else if (amount > 0) {
-            this.addOutput(`💚 You restore ${amount} health! (${this.health}/${this.maxHealth} HP)`, "success");
+        } else if (!silent) {
+            // Only show messages if not silent
+            if (amount < 0) {
+                this.addOutput(`💔 You take ${-amount} damage! (${this.health}/${this.maxHealth} HP)`, "danger");
+            } else if (amount > 0) {
+                this.addOutput(`💚 You restore ${amount} health! (${this.health}/${this.maxHealth} HP)`, "success");
+            }
         }
     }
 
     /**
      * Modify player energy
      */
-    modifyEnergy(amount) {
+    modifyEnergy(amount, silent = false) {
         this.energy = Math.max(0, Math.min(this.maxEnergy, this.energy + amount));
         this.updateStats();
         
-        if (this.energy <= 0 && amount < 0) {
+        // Flash energy bar on change
+        if (amount !== 0) {
+            const energyBar = document.getElementById('energyBar');
+            energyBar.parentElement.classList.add(amount < 0 ? 'stat-flash-drain' : 'stat-flash-restore');
+            setTimeout(() => {
+                energyBar.parentElement.classList.remove('stat-flash-drain', 'stat-flash-restore');
+            }, 500);
+        }
+        
+        if (!silent && this.energy <= 0 && amount < 0) {
             this.addOutput("⚡ You're exhausted! Rest to recover energy.", "warning");
         }
     }
