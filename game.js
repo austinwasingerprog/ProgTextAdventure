@@ -24,6 +24,9 @@ class Game {
         this.lastDamageMessage = null;
         this.lastEnergyWarning = null;
         
+        // Konami code for cheats
+        this.cheatsUnlocked = false;
+        
         // Game state
         this.turns = 0;
         this.isDead = false;
@@ -431,6 +434,23 @@ class Game {
         const target = parts.slice(1).join(' ');
         
         this.addOutput(`> ${command}`, "command");
+        
+        // Check for Konami code
+        if (cmd === 'up up down down left right left right b a') {
+            if (!this.cheatsUnlocked) {
+                this.cheatsUnlocked = true;
+                this.addOutput("", "normal");
+                this.addOutput("🎮 ═════════════════════════════════════════════", "success");
+                this.addOutput("    ⚡ KONAMI CODE ACTIVATED! ⚡", "success");
+                this.addOutput("       CHEAT CODES UNLOCKED!", "success");
+                this.addOutput("    Type 'cheat' for available codes", "success");
+                this.addOutput("═════════════════════════════════════════════ 🎮", "success");
+                this.addOutput("", "normal");
+            } else {
+                this.addOutput("Cheats are already unlocked!", "normal");
+            }
+            return;
+        }
 
         // Movement
         const directionMap = { 'n': 'north', 's': 'south', 'e': 'east', 'w': 'west', 'u': 'up', 'd': 'down' };
@@ -516,7 +536,14 @@ class Game {
                 break;
 
             case 'cheat':
-                this.processCheatCode(target);
+                if (this.cheatsUnlocked) {
+                    this.processCheatCode(target);
+                } else {
+                    this.addOutput(
+                        `I don't understand "${command}". Type 'help' for commands.`,
+                        "error"
+                    );
+                }
                 break;
 
             default:
@@ -1140,6 +1167,9 @@ class Game {
                 for (const [direction, exit] of Object.entries(room.exits)) {
                     const destRoom = this.graph.getRoom(exit.destination);
                     if (!destRoom) continue;
+                    
+                    // Skip connections to rooms on different floors
+                    if (this.getRoomFloor(destRoom.id) !== currentFloor) continue;
                     
                     // Skip connections to unvisited rooms unless we have full map
                     if (!destRoom.visited && !hasFullMap) continue;
