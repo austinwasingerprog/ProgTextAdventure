@@ -176,7 +176,7 @@ class Game {
             "normal"
         );
         this.addOutput("");
-        this.addOutput("💡 Commands: take [item], drop [item], inventory, use [item], examine [item]", "exits");
+        this.addOutput("💡 Commands: take [item], drop [item], inventory, use [item], examine [item], map", "exits");
         this.addOutput("📊 Watch your health and energy bars at the top!", "exits");
         this.addOutput("💡 Type 'help' for full command list", "exits");
         this.addOutput("");
